@@ -107,6 +107,13 @@ promptDescriptionInput.addEventListener('input', handleDescriptionInput);
 promptContentInput.addEventListener('blur', handlePromptContentBlur);
 promptNameInput.addEventListener('blur', handlePromptNameBlur);
 savePromptBtn.addEventListener('click', handleSavePrompt);
+generatePromptBtn.addEventListener('click', handleGeneratePrompt);
+
+// Generate Prompt Confirmation Modal Listeners
+cancelGenerateBtn.addEventListener('click', () => generatePromptConfirmModal.classList.add('hidden'));
+generateNewBtn.addEventListener('click', handleGenerateNewPrompt);
+updateExistingBtn.addEventListener('click', handleUpdateExistingPrompt);
+
 
 // Delete Prompt Modal Listeners
 cancelDeleteBtn.addEventListener('click', () => deletePromptModal.classList.add('hidden'));

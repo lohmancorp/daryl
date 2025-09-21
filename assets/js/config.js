@@ -112,6 +112,12 @@ const promptTokenCount = document.getElementById('promptTokenCount');
 const promptCost = document.getElementById('promptCost');
 const savePromptBtn = document.getElementById('savePromptBtn');
 
+// Generate Prompt Confirmation Modal References
+const generatePromptConfirmModal = document.getElementById('generatePromptConfirmModal');
+const cancelGenerateBtn = document.getElementById('cancelGenerateBtn');
+const updateExistingBtn = document.getElementById('updateExistingBtn');
+const generateNewBtn = document.getElementById('generateNewBtn');
+
 // Delete Prompt Modal References
 const deletePromptModal = document.getElementById('deletePromptModal');
 const deletePromptFilename = document.getElementById('deletePromptFilename');

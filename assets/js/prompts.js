@@ -342,7 +342,8 @@ wysiwygToolbar.addEventListener('click', (e) => {
 
 
 /**
- * Handles the Generate Prompt button click.
+ * Gatekeeper function for the 'Generate Prompt' button.
+ * Checks for existing content and shows a confirmation modal if necessary.
  */
 async function handleGeneratePrompt() {
     const objective = analysisObjectiveInput.innerHTML;
@@ -359,6 +360,40 @@ async function handleGeneratePrompt() {
         return;
     }
 
+    if (existingPrompt.trim()) {
+        generatePromptConfirmModal.classList.remove('hidden');
+    } else {
+        await executePromptGeneration();
+    }
+}
+
+/**
+ * Handles the "Generate New" option from the confirmation modal.
+ */
+async function handleGenerateNewPrompt() {
+    generatePromptConfirmModal.classList.add('hidden');
+    promptContentInput.value = ''; // Clear the existing prompt before generating
+    await executePromptGeneration();
+}
+
+/**
+ * Handles the "Update Existing" option from the confirmation modal.
+ */
+async function handleUpdateExistingPrompt() {
+    generatePromptConfirmModal.classList.add('hidden');
+    await executePromptGeneration(); // Proceed with the existing prompt content
+}
+
+
+/**
+ * Executes the actual prompt generation API call.
+ */
+async function executePromptGeneration() {
+    const objective = analysisObjectiveInput.innerHTML;
+    const existingPrompt = promptContentInput.value;
+    const geminiKey = geminiApiKeyInput.value.trim();
+    const model = geminiModelSelect.value;
+
     promptGenerationSpinner.classList.remove('hidden');
     generatePromptBtn.disabled = true;
 
@@ -373,8 +408,7 @@ async function handleGeneratePrompt() {
         generatePromptBtn.disabled = false;
     }
 }
-// Add listener to the new button
-generatePromptBtn.addEventListener('click', handleGeneratePrompt);
+
 
 // Add input listeners to all required fields to re-validate the form
 promptNameInput.addEventListener('input', () => {

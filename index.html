@@ -682,6 +682,19 @@
         </div>
     </div>
 
+    <!-- Generate Prompt Confirmation Modal -->
+    <div id="generatePromptConfirmModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-[80]">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <h3 class="text-lg font-bold text-slate-800 mb-2">Generate Prompt</h3>
+            <p class="text-sm text-slate-600 mb-4">A prompt already exists. How would you like to proceed?</p>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancelGenerateBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                <button id="updateExistingBtn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Update Existing</button>
+                <button id="generateNewBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Generate New</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Prompt Modal -->
     <div id="deletePromptModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-[70]">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4">
