@@ -1,0 +1,61 @@
+{
+    "fields": {
+        "ticket.priority": {
+            "type": "enum",
+            "values": {
+                "1": "Low",
+                "2": "Medium",
+                "3": "High",
+                "4": "Urgent"
+            },
+            "example": "1 (Low)"
+        },
+        "ticket.status": {
+            "type": "enum",
+            "values": {
+                "2": "Open",
+                "3": "Pending",
+                "4": "Resolved",
+                "5": "Closed"
+            },
+            "example": "2 (Open)"
+        },
+        "ticket.source": {
+            "type": "enum",
+            "values": {
+                "1": "Email",
+                "2": "Portal",
+                "14": "Alerts"
+            },
+            "example": "2 (Portal)"
+        },
+        "ticket.fr_escalated": {
+            "type": "boolean",
+            "example": "false"
+        },
+        "ticket.is_escalated": {
+            "type": "boolean",
+            "example": "false"
+        },
+        "ticket.spam": {
+            "type": "boolean",
+            "example": "false"
+        },
+        "conversation.private": {
+            "type": "boolean",
+            "example": "true"
+        },
+        "conversation.incoming": {
+            "type": "boolean",
+            "example": "false"
+        },
+        "conversation.source": {
+            "type": "enum",
+            "values": {
+                "0": "Reply",
+                "2": "Note"
+            },
+            "example": "0 (Reply)"
+        }
+    }
+}

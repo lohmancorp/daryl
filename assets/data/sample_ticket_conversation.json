@@ -1,0 +1,16 @@
+{
+    "conversations": [{
+        "id": 23055675408,
+        "user_id": 23001614074,
+        "to_emails": [],
+        "body": "<div>Thank you for contacting CloudBlue Technical Support.</div>",
+        "body_text": "Thank you for contacting CloudBlue Technical Support.",
+        "ticket_id": 248727,
+        "created_at": "2025-09-07T15:41:53Z",
+        "updated_at": "2025-09-07T15:41:53Z",
+        "incoming": false,
+        "private": false,
+        "source": 0,
+        "attachments": []
+    }]
+}

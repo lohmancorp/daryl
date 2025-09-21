@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D.A.R.Y.L. v1.0.3</title>
+    <link rel="icon" type="image/png" href="daryl.ico">
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- External Libraries from a reliable CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        .status-card {
+            transition: all 0.3s ease-in-out;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .status-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .dot-flashing {
+            position: relative;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #9880ff;
+            color: #9880ff;
+            animation: dotFlashing 1s infinite linear alternate;
+            animation-delay: .5s;
+        }
+        
+        .dot-flashing::before,
+        .dot-flashing::after {
+            content: '';
+            display: inline-block;
+            position: absolute;
+            top: 0;
+        }
+        
+        .dot-flashing::before {
+            left: -15px;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #9880ff;
+            color: #9880ff;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 0s;
+        }
+        
+        .dot-flashing::after {
+            left: 15px;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background-color: #9880ff;
+            color: #9880ff;
+            animation: dotFlashing 1s infinite alternate;
+            animation-delay: 1s;
+        }
+        
+        @keyframes dotFlashing {
+            0% {
+                background-color: #4f46e5;
+            }
+            50%,
+            100% {
+                background-color: #c7d2fe;
+            }
+        }
+        /* Basic styling for rendered markdown */
+        
+        .prose h1,
+        .prose h2,
+        .prose h3,
+        .prose h4 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+        }
+        
+        .prose p {
+            margin-bottom: 1em;
+            line-height: 1.6;
+        }
+        
+        .prose ul,
+        .prose ol {
+            margin-left: 1.5em;
+            margin-bottom: 1em;
+        }
+        
+        .prose li {
+            margin-bottom: 0.5em;
+        }
+        
+        .prose table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1em;
+        }
+        
+        .prose th,
+        .prose td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+        }
+        
+        .prose th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+            text-align: left;
+        }
+        
+        .prose a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+        
+        .prose a:hover {
+            text-decoration: underline;
+        }
+        
+        .prose code {
+            background-color: #f1f5f9;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        .prose pre {
+            background-color: #f1f5f9;
+            padding: 1em;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        
+        .prose blockquote {
+            border-left: 4px solid #e2e8f0;
+            padding-left: 1em;
+            color: #64748b;
+        }
+        
+        [data-tooltip] {
+            position: relative;
+        }
+        
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            transform-origin: bottom center;
+            margin-bottom: 8px;
+            background-color: #334155;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        
+        [data-tooltip]:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-800">
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+
+        <!-- Updated Header with ID -->
+        <header id="pageHeader" class="mb-8 flex items-center w-full">
+            <!-- Column 1: Logo (20%) -->
+            <div class="w-[20%]" id="logoContainer">
+                <img id="logoImage" src="assets/images/daryl_circle_logo_2.png" alt="Logo" class="w-[150px] h-[150px] rounded-full object-cover shadow-md cursor-pointer">
+                <video id="logoVideo" src="assets/videos/daryl-loop.mp4" loop muted playsinline class="w-[150px] h-[150px] rounded-full object-cover shadow-md hidden cursor-pointer"></video>
+            </div>
+
+            <!-- Column 2: Title (70%) -->
+            <div class="w-[70%] text-left">
+                <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Data Analysis Robot</h1>
+                <p class="text-slate-600 mt-2"><b>(D)</b>ata <b>(A)</b>nalysis <b>(R)</b>obot, makes <b>(Y)</b>our <b>(L)</b>ife easier.</p>
+            </div>
+
+            <!-- Column 3: Settings Menu -->
+            <div id="menuContainer" class="relative w-[10%] flex justify-end self-start mt-11">
+                <button id="menuButton" class="relative p-2 rounded-full bg-slate-200 hover:bg-slate-300 transition-colors">
+                    <i data-lucide="menu" class="text-slate-600"></i>
+                    <span id="settingsBadge" class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white hidden">0</span>
+                </button>
+                <!-- Dropdown Menu -->
+                <div id="menuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 z-50 hidden transition-all duration-300">
+                    <div class="p-2">
+                        <a href="#" id="openPromptsMenuItem" class="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md">
+                            <i data-lucide="file-cog" class="w-4 h-4 mr-3"></i> Prompts
+                        </a>
+                        <a href="#" id="openSettingsMenuItem" class="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md">
+                            <i data-lucide="settings" class="w-4 h-4 mr-3"></i> Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="space-y-6">
+
+            <!-- Section 1: Job Configuration -->
+            <div id="configSection" class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 relative">
+                <!-- Overlay to disable section -->
+                <div id="configOverlay" class="absolute inset-0 bg-white bg-opacity-80 flex flex-col items-center justify-center rounded-lg z-10 hidden">
+                    <p class="font-semibold text-slate-700">Settings Required</p>
+                    <p class="text-slate-600 text-sm mb-4">Please complete all required settings to proceed.</p>
+                    <button id="openSettingsFromOverlayBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700">
+                        Open Settings
+                    </button>
+                </div>
+
+                <!-- Actual Content -->
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2 text-slate-800">1. Job Configuration</h2>
+
+                <!-- Job Type Selection -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Job Type</label>
+                        <div class="flex items-center space-x-6">
+                            <label for="perTicketRadio" class="flex items-center cursor-pointer">
+                                <input type="radio" id="perTicketRadio" name="jobType" value="perTicket" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500" checked>
+                                <span class="ml-2 text-sm text-slate-800">Per Ticket Analysis</span>
+                            </label>
+                            <label for="overallRadio" class="flex items-center cursor-pointer">
+                                <input type="radio" id="overallRadio" name="jobType" value="overall" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500">
+                                <span class="ml-2 text-sm text-slate-800">Overall Ticket Analysis</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="extractionProfileSelect" class="block text-sm font-medium text-slate-700 mb-2">Extraction Profile</label>
+                        <select id="extractionProfileSelect" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="light">Light</option>
+                            <option value="extended">Extended</option>
+                        </select>
+                    </div>
+                </div>
+
+
+                <div id="ticketInputContainer">
+                    <div class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+                        <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                        />
+                        <div class="flex-grow">
+                            <label for="columnSelect" class="sr-only">Select Column</label>
+                            <select id="columnSelect" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled>
+                                <option>Select Ticket Column</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="ticketCountDisplay" class="mt-4 text-center text-slate-600 font-medium hidden p-2 bg-slate-100 rounded-md"></div>
+                </div>
+
+            </div>
+
+            <div id="errorMessage" class="hidden text-center text-red-600 font-medium p-3 bg-red-100 rounded-lg"></div>
+
+            <!-- Section 2: Analysis Control & Progress -->
+            <div id="analysisSection" class="hidden bg-white p-6 rounded-lg shadow-sm border border-slate-200 space-y-4">
+                <h2 class="text-xl font-semibold border-b pb-2 text-slate-800">2. Analysis Progress</h2>
+
+                <!-- Progress Bars -->
+                <div id="fetchProgressContainer" class="hidden pt-4">
+                    <div class="flex justify-between items-baseline">
+                        <label class="block text-sm font-medium text-slate-700">Fetching from FreshService...</label>
+                        <p id="fetchProgressText" class="text-sm text-slate-600 mt-1">Processed 0 of 0 tickets.</p>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-4 mt-1">
+                        <div id="fetchProgressBar" class="bg-blue-600 h-4 rounded-full text-center text-white text-xs font-bold leading-4" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="analysisProgressContainer" class="hidden">
+                    <div class="flex justify-between items-baseline">
+                        <label class="block text-sm font-medium text-slate-700">Analyzing with Gemini...</label>
+                        <p id="analysisProgressText" class="text-sm text-slate-600 mt-1">Processed 0 of 0 requests.</p>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-4 mt-1">
+                        <div id="analysisProgressBar" class="bg-indigo-600 h-4 rounded-full text-center text-white text-xs font-bold leading-4" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- In-Progress Buttons -->
+                <div id="inProgressControls" class="hidden text-center space-x-4 pt-4">
+                    <button id="startButton" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors duration-300">
+                        Start Analysis
+                    </button>
+                    <button id="pauseButton" class="hidden bg-yellow-500 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400 disabled:bg-slate-400 transition-colors duration-300">Pause</button>
+                    <button id="cancelButton" class="hidden bg-red-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:bg-slate-400 transition-colors duration-300">Cancel</button>
+                </div>
+            </div>
+
+            <!-- Section 3: Results -->
+            <div id="resultsSection" class="hidden bg-white p-6 rounded-lg shadow-sm border border-slate-200 space-y-4">
+                <h2 class="text-xl font-semibold border-b pb-2 text-slate-800">3. Analysis Results</h2>
+                <div id="perTicketControlsContainer" class="hidden"></div>
+                <div id="downloadContainer" class="text-center hidden space-x-2 space-y-2">
+                    <!-- Download buttons will be injected here -->
+                </div>
+                <div id="promptContainer" class="relative mt-4 hidden group"></div>
+                <div id="loadingIndicator" class="flex justify-center items-center my-8 hidden">
+                    <div class="dot-flashing"></div>
+                    <p class="ml-4 text-slate-600">Please wait...</p>
+                </div>
+                <div id="resultsContainer" class="space-y-4"></div>
+            </div>
+
+            <!-- Section 4: Stats -->
+            <div id="statsSection" class="hidden bg-white p-6 rounded-lg shadow-sm border border-slate-200 space-y-4">
+                <h2 class="text-xl font-semibold border-b pb-2 text-slate-800">4. Analysis Stats</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-sm font-medium text-slate-600">Total Run Time</p>
+                        <p id="e2eTimeDisplay" class="text-2xl font-bold text-indigo-600">0h 0m 0s</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-slate-600">Estimated Time Saved</p>
+                        <p id="timeSavedDisplay" class="text-2xl font-bold text-green-600">0m</p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-slate-600">Estimated API Cost</p>
+                        <p id="apiCostDisplay" class="text-2xl font-bold text-yellow-600">$0.0000</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Analysis Button Container -->
+            <div id="newAnalysisContainer" class="hidden text-center" style="margin-top: 50px;">
+                <button id="newAnalysisButton" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400 disabled:cursor-not-allowed transition-colors duration-300">
+                    Start New Analysis
+                </button>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl max-h-full overflow-y-auto modal-scroll-content">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-semibold text-slate-800">Settings</h2>
+                <button id="closeSettingsButton" class="p-2 rounded-full hover:bg-slate-200">
+                    <i data-lucide="x" class="text-slate-600"></i>
+                </button>
+            </div>
+            <div class="space-y-6">
+                <!-- Row 1: FreshService -->
+                <div class="space-y-4 border-b pb-4">
+                    <h3 class="text-lg font-medium text-slate-800">FreshService Configuration</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="fsDomain" class="block text-sm font-medium text-slate-700">FreshService Domain <span class="text-red-500">*</span></label>
+                            <input type="text" id="fsDomain" placeholder="yourcompany.freshservice.com" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <p class="mt-1 text-xs text-slate-500">Your full FreshService URL.</p>
+                        </div>
+                        <div>
+                            <label for="fsApiKey" class="block text-sm font-medium text-slate-700">FreshService API Key <span class="text-red-500">*</span></label>
+                            <div class="relative mt-1">
+                                <input type="password" id="fsApiKey" placeholder="Paste your API key here" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 pr-10">
+                                <button id="toggleFsApiKey" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700">
+                                    <i data-lucide="eye" id="fsApiKeyShow" class="w-[18px] h-[18px]"></i>
+                                    <i data-lucide="eye-off" id="fsApiKeyHide" class="w-[18px] h-[18px] hidden"></i>
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Your personal API key for authentication.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Gemini -->
+                <div class="space-y-4 border-b pb-4">
+                    <h3 class="text-lg font-medium text-slate-800">Gemini Configuration</h3>
+                    <!-- New Model Selector Row -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center">
+                            <label for="geminiModelSelect" class="block text-sm font-medium text-slate-700">Gemini Model <span id="geminiModelRequiredStar" class="text-red-500">*</span></label>
+                            <button id="refreshGeminiModelsBtn" title="Refresh model list" class="p-1 rounded-full hover:bg-slate-200 transition-colors">
+                                <i data-lucide="refresh-cw" class="w-4 h-4 text-slate-600"></i>
+                            </button>
+                        </div>
+                        <select id="geminiModelSelect" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100">
+                            <option value="">Enter API Key to load models</option>
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">The generative model to use for analysis. For best results with Overall Analysis, use a powerful model like Gemini 1.5 Pro.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                        <div>
+                            <label for="geminiApiKey" class="block text-sm font-medium text-slate-700">Gemini API Key <span id="geminiRequiredStar" class="text-red-500">*</span></label>
+                            <div class="relative mt-1">
+                                <input type="password" id="geminiApiKey" placeholder="Paste your Gemini API key here" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 pr-10">
+                                <button id="toggleGeminiApiKey" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700">
+                                    <i data-lucide="eye" id="geminiApiKeyShow" class="w-[18px] h-[18px]"></i>
+                                    <i data-lucide="eye-off" id="geminiApiKeyHide" class="w-[18px] h-[18px] hidden"></i>
+                                </button>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Required for ticket analysis.</p>
+                        </div>
+                        <div>
+                            <label for="dummyMode" class="block text-sm font-medium text-slate-700">Dummy Mode</label>
+                            <div class="mt-2">
+                                <label for="dummyMode" class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="dummyMode" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Fetches data only, no AI analysis.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: API Throttling -->
+                <div class="space-y-4 border-b pb-4">
+                    <h3 class="text-lg font-medium text-slate-800">API Throttling</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="apiDelay" class="block text-sm font-medium text-slate-700">Call Delay (ms)</label>
+                            <input type="number" id="apiDelay" value="200" step="100" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <p class="mt-1 text-xs text-slate-500">Delay between each FreshService API call.</p>
+                        </div>
+                        <div>
+                            <label for="rateLimitDelay" class="block text-sm font-medium text-slate-700">Retry Delay (sec)</label>
+                            <input type="number" id="rateLimitDelay" value="60" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <p class="mt-1 text-xs text-slate-500">How long to wait after hitting a rate limit.</p>
+                        </div>
+                        <div>
+                            <label for="maxRetries" class="block text-sm font-medium text-slate-700">Max Retries</label>
+                            <input type="number" id="maxRetries" value="5" step="1" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <p class="mt-1 text-xs text-slate-500">Attempts before failing a request.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 4: AI Configuration -->
+                <div class="space-y-4 border-b pb-4">
+                    <h3 class="text-lg font-medium text-slate-800">AI Analysis Configuration</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <div class="flex justify-between items-center">
+                                <label for="productModules" class="block text-sm font-medium text-slate-700">Product Modules <span id="modulesRequiredStar" class="text-red-500">*</span></label>
+                                <button id="loadModulesBtn" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">Load Options</button>
+                            </div>
+                            <textarea id="productModules" rows="4" placeholder="Dashboard&#10;User Management&#10;Reporting Suite&#10;Billing" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            <p class="mt-1 text-xs text-slate-500">One per line. Used by the AI to categorize tickets.</p>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center">
+                                <label for="useCases" class="block text-sm font-medium text-slate-700">Use Cases <span id="useCasesRequiredStar" class="text-red-500">*</span></label>
+                                <button id="loadUseCasesBtn" class="text-xs text-indigo-600 hover:text-indigo-800 font-semibold">Load Options</button>
+                            </div>
+                            <textarea id="useCases" rows="4" placeholder="Exporting Data&#10;Onboarding New User&#10;Creating a Report&#10;Password Reset" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                            <p class="mt-1 text-xs text-slate-500">One per line. Used by the AI to categorize tickets.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 5: Privacy Configuration -->
+                <div class="space-y-4 border-b pb-4">
+                    <h3 class="text-lg font-medium text-slate-800">Privacy Configuration</h3>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Data Extraction & Field Exclusion</label>
+                        <p class="mt-1 text-xs text-slate-500 mb-2">Define which fields are pulled from FreshService. Fields not selected in a profile are effectively excluded from analysis and downloads.</p>
+                        <button id="configureExtractionBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Configure Extraction Profiles</button>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Scrub PII from Processed Fields</label>
+                        <p class="mt-1 text-xs text-slate-500 mb-2">For fields that are processed, choose which types of PII to find and replace with placeholders.</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+
+                            <!-- PII Toggles -->
+                            <label for="scrubEmails" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scrubEmails" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span class="ml-3 text-sm font-medium text-slate-900">Emails</span>
+                            </label>
+
+                            <label for="scrubIps" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scrubIps" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span class="ml-3 text-sm font-medium text-slate-900">IP Addresses</span>
+                            </label>
+
+                            <label for="scrubPhones" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scrubPhones" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span class="ml-3 text-sm font-medium text-slate-900">Phone #s</span>
+                            </label>
+
+                            <label for="scrubNames" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scrubNames" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span class="ml-3 text-sm font-medium text-slate-900">Names</span>
+                            </label>
+
+                            <label for="scrubCompanies" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="scrubCompanies" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span class="ml-3 text-sm font-medium text-slate-900">Companies</span>
+                            </label>
+
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 6: Misc Settings -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-medium text-slate-800">Misc. Settings</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="atr" class="block text-sm font-medium text-slate-700">Average Time to Review (min)</label>
+                            <input type="number" id="atr" value="15" step="5" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                            <p class="mt-1 text-xs text-slate-500">Used for time-saved calculation.</p>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+            <div class="mt-6 text-right">
+                <button id="saveSettingsButton" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompts Modal -->
+    <div id="promptsModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col modal-scroll-content">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-semibold text-slate-800">Prompt Library</h2>
+                <button id="closePromptsModalBtn" class="p-2 rounded-full hover:bg-slate-200">
+                    <i data-lucide="x" class="text-slate-600"></i>
+                </button>
+            </div>
+            <div class="flex items-center justify-between mb-4">
+                <div class="relative w-full max-w-md">
+                    <input type="text" id="promptSearchInput" placeholder="Filter prompts..." class="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg text-sm">
+                    <button id="clearPromptSearchBtn" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700 hidden">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <button id="addPromptBtn" class="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700" data-tooltip="Add Prompt">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="flex-grow overflow-y-auto px-5">
+                <table class="w-full text-sm text-left text-slate-500">
+                    <colgroup>
+                        <col style="width: 20%;">
+                        <col style="width: 35%;">
+                        <col style="width: 15%;">
+                        <col style="width: 15%;">
+                        <col style="width: 15%;">
+                    </colgroup>
+                    <thead class="text-xs text-slate-700 uppercase bg-slate-100">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Prompt Name</th>
+                            <th scope="col" class="px-6 py-3">Description</th>
+                            <th scope="col" class="px-6 py-3">Tokens</th>
+                            <th scope="col" class="px-6 py-3">Est. Cost</th>
+                            <th scope="col" class="px-6 py-3 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="promptsTableBody">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+                <div id="noPromptsMessage" class="text-center py-8 text-slate-500 hidden">
+                    <i data-lucide="folder-open" class="w-12 h-12 mx-auto mb-2"></i>
+                    <p>No prompts found. Click the '+' button to add one.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Editor Modal -->
+    <div id="promptEditorModal" class="fixed inset-0 bg-slate-900 bg-opacity-90 flex items-center justify-center p-4 hidden z-[60]">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col modal-scroll-content">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 id="promptEditorTitle" class="text-xl font-semibold text-slate-800">Create New Prompt</h2>
+                <button id="closePromptEditorBtn" class="p-2 rounded-full hover:bg-slate-200">
+                    <i data-lucide="x" class="text-slate-600"></i>
+                </button>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2 space-y-4">
+                <div>
+                    <label for="promptNameInput" class="block text-sm font-medium text-slate-700">Prompt Name <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="text" id="promptNameInput" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-500">
+                        <div id="promptNameValidation" class="absolute inset-y-0 right-0 flex items-center pr-3"></div>
+                    </div>
+                </div>
+                <div>
+                    <label for="promptDescriptionInput" class="block text-sm font-medium text-slate-700">Prompt Description <span class="text-red-500">*</span></label>
+                    <textarea id="promptDescriptionInput" rows="2" maxlength="250" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <p id="promptCharCounter" class="text-xs text-right text-slate-500 mt-1">0 / 250</p>
+                </div>
+                <div>
+                    <label for="promptContentInput" class="block text-sm font-medium text-slate-700">Prompt <span class="text-red-500">*</span></label>
+                    <textarea id="promptContentInput" rows="10" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-y"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-3 rounded-md">
+                    <div class="text-center">
+                        <p class="font-medium text-slate-600">Est. Tokens</p>
+                        <p id="promptTokenCount" class="font-bold text-slate-800 text-lg">0</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="font-medium text-slate-600">Est. Cost</p>
+                        <p id="promptCost" class="font-bold text-slate-800 text-lg">$0.0000</p>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 text-right">
+                <button id="savePromptBtn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-slate-400">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Prompt Modal -->
+    <div id="deletePromptModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-[70]">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <h3 class="text-lg font-bold text-slate-800 mb-2">Delete Prompt</h3>
+            <p class="text-sm text-slate-600 mb-4">This action cannot be undone. To confirm, please type the filename <strong id="deletePromptFilename" class="text-red-600"></strong> below.</p>
+            <div>
+                <input type="text" id="deleteConfirmationInput" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancelDeleteBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                <button id="confirmDeleteBtn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 disabled:bg-slate-400" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Field Loader Modal -->
+    <div id="fieldLoaderModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center hidden z-[60]">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Load Options from FreshService</h3>
+            <div id="modalSpinner" class="text-center hidden">
+                <div class="dot-flashing mx-auto"></div>
+            </div>
+            <div id="modalContent">
+                <div class="mb-4">
+                    <label for="fieldSelect" class="block text-sm font-medium text-slate-700">Select a field</label>
+                    <select id="fieldSelect" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Available Options</label>
+                    <div id="fieldChoicesPreview" class="mt-1 p-2 h-32 overflow-y-auto bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-600">
+                        Select a field to see its options.
+                    </div>
+                </div>
+            </div>
+            <div id="modalError" class="text-red-600 text-sm mt-2 hidden"></div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="modalCancelBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                <button id="modalUseBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-slate-400">Use These Options</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extraction Settings Modal -->
+    <div id="extractionSettingsModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-[70]">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+            <div class="p-4 border-b">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold text-slate-800">Configure Extraction Profiles</h2>
+                    <button id="closeExtractionSettingsBtn" class="p-2 rounded-full hover:bg-slate-200">
+                        <i data-lucide="x" class="text-slate-600"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-grow flex overflow-hidden">
+                <!-- Left Panel: Tabs & Search -->
+                <div class="w-1/3 md:w-1/4 border-r bg-slate-50 p-4 flex flex-col">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700">Profile</label>
+                        <div class="flex mt-1 rounded-md shadow-sm">
+                            <button id="extractionLightTabBtn" class="relative inline-flex items-center justify-center w-1/2 px-4 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">Light</button>
+                            <button id="extractionExtendedTabBtn" class="-ml-px relative inline-flex items-center justify-center w-1/2 px-4 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">Extended</button>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="fieldSearchInput" class="block text-sm font-medium text-slate-700">Search Fields</label>
+                        <div class="relative mt-1">
+                            <input type="text" id="fieldSearchInput" placeholder="e.g., subject, priority" class="block w-full pl-3 pr-8 py-2 border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <button id="clearSearchBtn" class="absolute inset-y-0 right-0 flex items-center px-2 text-slate-500 hover:text-slate-700 hidden">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="conversationFilterContainer" class="space-y-2">
+                        <h4 class="text-sm font-medium text-slate-700">Conversation Types</h4>
+                        <!-- Conversation filters will be injected here -->
+                    </div>
+                    <div class="mt-auto pt-4 text-center text-xs text-slate-500">
+                        Select fields to include in the data extraction from FreshService.
+                    </div>
+                </div>
+                <!-- Right Panel: Field List -->
+                <div id="fieldListContainer" class="flex-grow p-4 overflow-y-auto">
+                    <!-- Hierarchical checklist will be injected here -->
+                </div>
+            </div>
+            <div class="p-4 border-t bg-slate-50 flex justify-between items-center">
+                <button id="resetExtractionBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Reset to Default</button>
+                <div class="space-x-3">
+                    <button id="cancelExtractionSettingsBtn" class="bg-slate-200 text-slate-800 font-bold py-2 px-4 rounded-lg hover:bg-slate-300">Cancel</button>
+                    <button id="saveExtractionSettingsBtn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700">Save Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extended Ticket Details Modal -->
+    <div id="extendedTicketModal" class="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-2xl max-h-full overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 id="extendedTicketModalTitle" class="text-xl font-semibold text-slate-800">Ticket Details</h2>
+                <button id="closeExtendedTicketModalBtn" class="p-2 rounded-full hover:bg-slate-200">
+                   <i data-lucide="x" class="text-slate-600"></i>
+                </button>
+            </div>
+            <div id="extendedTicketModalContent" class="space-y-4">
+                <!-- Content will be injected by ui.js -->
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Application Scripts -->
+    <script src="assets/js/schemas.js" defer></script>
+    <script src="assets/js/config.js" defer></script>
+    <script src="assets/js/utils.js" defer></script>
+    <script src="assets/js/settings.js" defer></script>
+    <script src="assets/js/extraction.js" defer></script>
+    <script src="assets/js/ui.js" defer></script>
+    <script src="assets/js/api.js" defer></script>
+    <script src="assets/js/prompts.js" defer></script>
+    <script src="assets/js/main.js" defer></script>
+    <script>
+        // Initialize Lucide icons after the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+
+</body>
+
+</html>
