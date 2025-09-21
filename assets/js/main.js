@@ -8,7 +8,7 @@
 // This file is the entry point and orchestrator for the application.
 // It contains the core analysis logic and sets up all event listeners.
 
-let menuCloseTimer;
+let menuCloseTimer; // Timer for menu closing delay
 
 // --- Event Listeners ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -42,37 +42,26 @@ overallRadio.addEventListener('change', handleJobTypeChange);
 
 // Menu Listeners
 menuContainer.addEventListener('mouseenter', () => {
-    // When mouse enters the container (button or dropdown), clear any pending close timer.
-    clearTimeout(menuCloseTimer);
-    // And ensure the menu is visible.
+    clearTimeout(menuCloseTimer); // Cancel any pending close command
     menuDropdown.classList.remove('hidden');
 });
-
 menuContainer.addEventListener('mouseleave', () => {
-    // When mouse leaves the menu area, start a timer to close it.
-    // This provides a delay, allowing the cursor to move between the button and the dropdown menu without it closing.
+    // Set a timer to close the menu, allowing the user to move to the dropdown
     menuCloseTimer = setTimeout(() => {
-        // Only hide if the menu is not "pinned" open by a click.
         if (!menuContainer.classList.contains('menu-open')) {
             menuDropdown.classList.add('hidden');
         }
-    }, 300); // 300ms delay before closing.
+    }, 200); // 200ms delay
 });
-
 menuButton.addEventListener('click', (e) => {
     e.stopPropagation(); // Prevent the body click listener from firing immediately
     const isOpen = menuContainer.classList.toggle('menu-open');
-
-    // If the menu was just opened via click, make sure the close timer is cancelled.
     if (isOpen) {
-        clearTimeout(menuCloseTimer);
         menuDropdown.classList.remove('hidden');
     } else {
-        // If closed via click, hide it immediately.
         menuDropdown.classList.add('hidden');
     }
 });
-
 openSettingsMenuItem.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent body click listener from closing the menu before modal opens
@@ -562,6 +551,7 @@ function startNewAnalysis() {
     fileUploadInput.value = '';
     columnSelect.innerHTML = '<option>Select column with Ticket IDs</option>';
     columnSelect.disabled = true;
+    ticketCountDisplay.classList.add('hidden');
     sheetData = [];
 
     fetchProgressContainer.classList.add('hidden');

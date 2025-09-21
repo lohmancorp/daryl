@@ -99,7 +99,7 @@ function handlePromptSearch() {
     const filteredPrompts = allPrompts.filter(p => {
         return p.name.toLowerCase().includes(query) ||
             p.description.toLowerCase().includes(query) ||
-            p.prompt.toLowerCase().includes(query) ||
+            (p.prompt && p.prompt.toLowerCase().includes(query)) ||
             (p.tokens && p.tokens.toString().includes(query)) ||
             (p.cost && p.cost.toLowerCase().includes(query));
     });
@@ -122,6 +122,7 @@ function openPromptEditor(mode, promptData = null) {
     promptNameInput.value = '';
     promptNameInput.disabled = false;
     promptDescriptionInput.value = '';
+    analysisObjectiveInput.innerHTML = '';
     promptContentInput.value = '';
     promptNameValidation.innerHTML = '';
     promptNameInput.classList.remove('border-red-500', 'border-green-500');
@@ -129,8 +130,14 @@ function openPromptEditor(mode, promptData = null) {
     promptCost.textContent = '$0.0000';
     savePromptBtn.disabled = true;
 
-    // Reset disabled state for copy mode
+    // Reset resizable fields' height
+    promptDescriptionInput.style.height = '';
+    analysisObjectiveInput.style.height = '';
+    promptContentInput.style.height = '';
+
+    // Reset disabled/editable states
     promptDescriptionInput.disabled = false;
+    analysisObjectiveInput.contentEditable = true;
     promptContentInput.disabled = false;
 
 
@@ -140,29 +147,35 @@ function openPromptEditor(mode, promptData = null) {
     } else if (mode === 'edit') {
         promptEditorTitle.textContent = `Edit: ${promptData.name}`;
         promptNameInput.value = promptData.name;
-        promptNameInput.disabled = true; // Disable name editing for 'edit' mode
+        promptNameInput.disabled = true;
         promptDescriptionInput.value = promptData.description;
+        analysisObjectiveInput.innerHTML = promptData.analysis_objective || '';
         promptContentInput.value = promptData.prompt;
         promptTokenCount.textContent = promptData.tokens || '0';
         promptCost.textContent = promptData.cost || '$0.0000';
-        savePromptBtn.disabled = false; // Can save immediately
+        savePromptBtn.disabled = false;
     } else if (mode === 'copy') {
         promptEditorTitle.textContent = 'Copy Prompt';
         promptDescriptionInput.value = promptData.description;
+        analysisObjectiveInput.innerHTML = promptData.analysis_objective || '';
         promptContentInput.value = promptData.prompt;
         promptTokenCount.textContent = promptData.tokens || '0';
         promptCost.textContent = promptData.cost || '$0.0000';
         // Disable other fields until a valid new name is entered
         promptDescriptionInput.disabled = true;
+        analysisObjectiveInput.contentEditable = false;
         promptContentInput.disabled = true;
     }
 
-    handleDescriptionInput(); // Update char counter
+    handleDescriptionInput();
     promptEditorModal.classList.remove('hidden');
     const modalContent = promptEditorModal.querySelector('.modal-scroll-content');
     if (modalContent) {
         modalContent.scrollTop = 0;
     }
+
+    // Set initial toolbar state
+    setTimeout(updateWysiwygToolbarState, 0);
 }
 
 
@@ -173,6 +186,7 @@ function handleDescriptionInput() {
     const count = promptDescriptionInput.value.length;
     promptCharCounter.textContent = `${count} / 250`;
     promptCharCounter.classList.toggle('text-red-500', count >= 250);
+    savePromptBtn.disabled = !isPromptFormValid();
 }
 
 /**
@@ -182,7 +196,6 @@ async function handlePromptNameBlur() {
     const name = promptNameInput.value.trim();
     if (!name) return;
 
-    // No need to validate if editing and the name hasn't changed (since it's disabled)
     if (promptEditorMode === 'edit') {
         savePromptBtn.disabled = !isPromptFormValid();
         return;
@@ -202,9 +215,9 @@ async function handlePromptNameBlur() {
         promptNameValidation.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i>`;
         promptNameInput.classList.remove('border-red-500');
         promptNameInput.classList.add('border-green-500');
-        // If in copy mode, enable other fields now that name is valid
         if (promptEditorMode === 'copy') {
             promptDescriptionInput.disabled = false;
+            analysisObjectiveInput.contentEditable = true;
             promptContentInput.disabled = false;
         }
     }
@@ -221,13 +234,17 @@ async function handlePromptContentBlur() {
     const geminiKey = geminiApiKeyInput.value.trim();
     const model = geminiModelSelect.value;
 
-    if (!text || !geminiKey || !model) return;
+    if (!text || !geminiKey || !model) {
+        promptTokenCount.textContent = '0';
+        promptCost.textContent = '$0.0000';
+        return;
+    };
 
     promptTokenCount.textContent = '...';
     promptCost.textContent = '...';
 
     const tokens = await countTokensWithGemini(text, geminiKey, model);
-    const cost = calculateGeminiCost(model, tokens, 0); // Cost is based on input for prompts
+    const cost = calculateGeminiCost(model, tokens, 0);
 
     promptTokenCount.textContent = tokens;
     promptCost.textContent = cost;
@@ -258,11 +275,11 @@ async function handleSavePrompt() {
 
     const name = promptNameInput.value.trim();
     const description = promptDescriptionInput.value.trim();
+    const analysis_objective = analysisObjectiveInput.innerHTML;
     const prompt = promptContentInput.value.trim();
     const tokens = promptTokenCount.textContent;
     const cost = promptCost.textContent;
 
-    // Use original filename for edits, generate new one for add/copy
     const filename = (promptEditorMode === 'edit' && currentEditingPrompt) ?
         currentEditingPrompt.filename :
         `${name.toLowerCase().replace(/\s+/g, '-')}.json`;
@@ -271,6 +288,7 @@ async function handleSavePrompt() {
     const content = {
         name,
         description,
+        analysis_objective,
         prompt,
         tokens: parseInt(tokens, 10) || 0,
         cost
@@ -283,7 +301,7 @@ async function handleSavePrompt() {
     try {
         await savePromptToServer(filename, content);
         promptEditorModal.classList.add('hidden');
-        await initializePrompts(); // Refresh the list
+        await initializePrompts();
     } catch (error) {
         console.error("Failed to save prompt:", error);
         alert(`Error saving prompt: ${error.message}`);
@@ -292,6 +310,88 @@ async function handleSavePrompt() {
         savePromptBtn.textContent = 'Save & Close';
     }
 }
+
+/**
+ * Updates the WYSIWYG toolbar buttons to reflect the current selection's state.
+ */
+function updateWysiwygToolbarState() {
+    const buttons = wysiwygToolbar.querySelectorAll('button');
+    buttons.forEach(button => {
+        const command = button.dataset.command;
+        if (document.queryCommandState(command)) {
+            button.classList.add('bg-indigo-100');
+        } else {
+            button.classList.remove('bg-indigo-100');
+        }
+    });
+}
+
+
+/**
+ * Handles clicks on the WYSIWYG toolbar buttons.
+ */
+wysiwygToolbar.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (button) {
+        const command = button.dataset.command;
+        document.execCommand(command, false, null);
+        analysisObjectiveInput.focus();
+        updateWysiwygToolbarState(); // Update state immediately after action
+    }
+});
+
+
+/**
+ * Handles the Generate Prompt button click.
+ */
+async function handleGeneratePrompt() {
+    const objective = analysisObjectiveInput.innerHTML;
+    const existingPrompt = promptContentInput.value;
+    const geminiKey = geminiApiKeyInput.value.trim();
+    const model = geminiModelSelect.value;
+
+    if (!objective.trim()) {
+        alert("Please provide an Analysis Objective before generating a prompt.");
+        return;
+    }
+    if (!geminiKey || !model) {
+        alert("Please ensure your Gemini API Key is set and a model is selected in Settings.");
+        return;
+    }
+
+    promptGenerationSpinner.classList.remove('hidden');
+    generatePromptBtn.disabled = true;
+
+    try {
+        const newPrompt = await generatePromptWithGemini(objective, existingPrompt, geminiKey, model);
+        promptContentInput.value = newPrompt;
+        await handlePromptContentBlur();
+    } catch (error) {
+        alert(`Failed to generate prompt: ${error.message}`);
+    } finally {
+        promptGenerationSpinner.classList.add('hidden');
+        generatePromptBtn.disabled = false;
+    }
+}
+// Add listener to the new button
+generatePromptBtn.addEventListener('click', handleGeneratePrompt);
+
+// Add input listeners to all required fields to re-validate the form
+promptNameInput.addEventListener('input', () => {
+    promptNameInput.classList.remove('border-red-500'); // Optimistically remove red border
+    promptNameValidation.innerHTML = ''; // Clear validation icon until blur
+    savePromptBtn.disabled = !isPromptFormValid();
+});
+promptContentInput.addEventListener('input', () => {
+    savePromptBtn.disabled = !isPromptFormValid();
+});
+analysisObjectiveInput.addEventListener('input', () => {
+    savePromptBtn.disabled = !isPromptFormValid();
+});
+
+// Listen for cursor changes in the WYSIWYG editor to update toolbar state
+analysisObjectiveInput.addEventListener('keyup', updateWysiwygToolbarState);
+analysisObjectiveInput.addEventListener('mouseup', updateWysiwygToolbarState);
 
 
 // --- Delete Prompt Functions ---

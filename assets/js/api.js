@@ -567,6 +567,74 @@ async function fetchAllDepartments() {
 // --- Prompt Management API Functions ---
 
 /**
+ * Generates a new prompt using Gemini based on an objective and an existing prompt.
+ * @param {string} objective - The user's goal for the prompt.
+ * @param {string} existingPrompt - The current prompt content (can be empty).
+ * @param {string} geminiKey - The Gemini API key.
+ * @param {string} model - The Gemini model to use.
+ * @returns {Promise<string>} The generated prompt text.
+ */
+async function generatePromptWithGemini(objective, existingPrompt, geminiKey, model) {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+
+    const systemPrompt = `You are an expert prompt engineer. Your task is to create a high-quality, effective system and user prompt for a Large Language Model (like Gemini) based on a user's stated objective. The final output should ONLY be the raw, combined text of the system and user prompts, ready to be used.
+
+RULES:
+1.  Structure the output with "### 1. System Prompt" and "### 2. User Prompt" headings.
+2.  If an existing prompt is provided, treat it as a starting point to be improved, refined, or completely rewritten to better meet the objective.
+3.  If no existing prompt is provided, create a new one from scratch based on the objective.
+4.  The generated prompt must be clear, concise, and provide explicit instructions to guide the LLM's response format and behavior.
+5.  Your response MUST contain ONLY the generated prompt text. Do not include any other commentary, explanations, or markdown code fences.`;
+
+    const userPrompt = `Here is my objective and my current prompt. Please generate an improved prompt.
+
+OBJECTIVE:
+---
+${objective}
+---
+
+EXISTING PROMPT (if any):
+---
+${existingPrompt || "None provided. Please create a new prompt from scratch."}
+---`;
+
+    const payload = {
+        "contents": [{ "parts": [{ "text": userPrompt }] }],
+        "systemInstruction": { "parts": [{ "text": systemPrompt }] }
+    };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error((errorData.error && errorData.error.message) || `Gemini API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const candidate = result.candidates && result.candidates[0];
+
+        if (!candidate || !candidate.content || !candidate.content.parts || !candidate.content.parts[0].text) {
+            // Handle safety blocks or empty responses
+            if (result.promptFeedback && result.promptFeedback.blockReason) {
+                throw new Error(`Prompt generation failed. Reason: ${result.promptFeedback.blockReason}. Please revise your objective.`);
+            }
+            throw new Error("Invalid or empty response structure from Gemini API during prompt generation.");
+        }
+
+        return candidate.content.parts[0].text;
+
+    } catch (error) {
+        console.error("Error generating prompt with Gemini:", error);
+        throw error; // Re-throw to be caught by the calling function
+    }
+}
+
+/**
  * Counts the tokens in a given text using the Gemini API.
  * @param {string} text The text to count tokens for.
  * @param {string} geminiKey The Gemini API key.
@@ -599,14 +667,14 @@ async function countTokensWithGemini(text, geminiKey, model) {
 
 /** Fetches the list of prompt filenames from the server. */
 async function fetchPromptList() {
-    const response = await fetch('/list-prompts');
+    const response = await fetch(`/list-prompts?_=${new Date().getTime()}`); // Cache buster
     if (!response.ok) throw new Error('Failed to fetch prompt list.');
     return await response.json();
 }
 
 /** Fetches the content of a specific prompt file. */
 async function fetchPromptContent(filename) {
-    const response = await fetch(`/assets/prompts/${filename}`);
+    const response = await fetch(`/assets/prompts/${filename}?_=${new Date().getTime()}`); // Cache buster
     if (!response.ok) throw new Error(`Failed to fetch prompt: ${filename}`);
     return await response.json();
 }
