@@ -18,6 +18,7 @@ async function initializePrompts() {
         });
         allPrompts = await Promise.all(promptPromises);
         renderPromptsTable(allPrompts);
+        populatePromptDatalist(allPrompts); // NEW: Populate the datalist on initialization
     } catch (error) {
         console.error("Error initializing prompts:", error);
         promptsTableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">${error.message}</td></tr>`;
@@ -106,6 +107,38 @@ function handlePromptSearch() {
 
     renderPromptsTable(filteredPrompts);
 }
+
+/**
+ * Populates the datalist for prompt selection in the main UI.
+ * @param {Array} prompts - The array of prompt objects.
+ */
+function populatePromptDatalist(prompts) {
+    promptSelectDatalist.innerHTML = '';
+    prompts.forEach(prompt => {
+        const option = document.createElement('option');
+        option.value = prompt.name;
+        promptSelectDatalist.appendChild(option);
+    });
+}
+
+
+/**
+ * Handles the selection of a prompt from the datalist and displays its description.
+ */
+function handlePromptSelection() {
+    const selectedPromptName = promptSelectInput.value;
+    const selectedPrompt = allPrompts.find(p => p.name === selectedPromptName);
+
+    if (selectedPrompt) {
+        currentPrompt = selectedPrompt;
+        displaySelectedPromptDescription(selectedPrompt);
+    } else {
+        currentPrompt = null;
+        promptDescriptionContainer.classList.add('hidden');
+        promptDescriptionText.textContent = '';
+    }
+}
+
 
 // --- Prompt Editor Functions ---
 

@@ -20,63 +20,6 @@ const GEMINI_PRICING = {
 
 
 /**
- * Returns the raw text for system and user prompts for manual copying.
- * @param {boolean} isOverall - Whether to return the prompt for the overall analysis.
- * @returns {string} The combined prompt text.
- */
-function getRawPromptText(isOverall = false) {
-    if (isOverall) {
-        const systemPrompt = `You are an expert Product Manager and Senior Support Analyst. Your primary function is to analyze raw support ticket data and transform it into a concise, actionable business report for product and support leadership.
-
-**Your Guiding Principles:**
-1.  **Clarity and Brevity:** The report must be easy to understand at a glance. Start with the most important information first.
-2.  **Data-Driven Accuracy:** All claims, categories, and examples must be directly and verifiably backed by the provided data. When selecting example tickets, ensure the content of the ticket is a perfect match for the summary you provide. Quantify everything.
-3.  **Action-Oriented:** Every problem identified must be paired with concrete, actionable suggestions for improvement. Do not just state the problem; propose a solution.
-4.  **Proactive & Strategic Thinking:** Go beyond simple categorization. Use extended reasoning to identify underlying patterns, root causes, and opportunities for systemic improvements. Suggest new platform features or process changes that could prevent entire classes of problems from occurring.
-5.  **Structured Output:** Always follow the requested Markdown format and file generation instructions precisely. This includes tables, headings, links, and separate CSV files.
-6.  **Adapt to Data Scale:** If the provided dataset is very small (e.g., fewer than 5 tickets), your primary goal is to analyze the provided data accurately. State the data's size limitation upfront in the report. Do not invent, hallucinate, or add extra tickets to meet a minimum count. Base your entire report ONLY on the data provided in the attached file.
-
-**Core Task:**
-When given a dataset of support tickets, you will categorize all tickets, quantify the volume of each area, provide detailed analysis with strategic recommendations, and generate supplementary data files for easy sharing and further review.`;
-
-        const userPrompt = `Please perform a comprehensive analysis of the attached FreshService ticket data ('[FILENAME_HERE].json') and generate a primary report file and two supplementary CSV data files.
-
-#### 1. Primary Report File ('[REPORT_NAME].md')
-
-The report must follow this specific structure:
-
-**A. Overall Ticket Quality Analysis:**
-* Create a summary table with the columns: "Category", "Ticket Count", and "Percentage of Total". This table must account for **all** tickets in the dataset, separated into "Actionable Tickets (with context)" and "Inactionable Tickets (low information)".
-
-**B. Where to Act First: Summary:**
-* Provide a brief, high-level summary identifying the single most impactful problem area from the actionable tickets and advising where to focus efforts first.
-
-**C. Detailed Ticket Volume Analysis:**
-* Create a markdown table with the columns: "Problem Area", "Ticket Count", and "Percentage of Total". It should quantify the main categories you identify from the actionable tickets.
-
-**D. Strategic Problem Analysis:**
-* For each major problem area from the table, create a dedicated section. Each section must contain:
-    * A "Symptoms" section with a bulleted list of specific examples from the tickets.
-    * An "Actionable Suggestions" section with a numbered list of concrete recommendations. These should include not only immediate fixes but also strategic suggestions for new features or process changes that could eliminate the root cause of the problem.
-
-**E. Example Tickets:**
-* Conclude the report by highlighting a "Most Informative Ticket" and 1-2 "Other High-Quality Tickets". For each, rigorously explain *why* it is a good example, ensuring the summary perfectly matches the content of the linked ticket.
-
-
-#### Formatting Requirements:
-* In the main report, all ticket numbers (e.g., "Ticket #248455") must be formatted as clickable markdown links.
-* **CRITICAL:** The URL for each ticket link MUST be a direct link to the user's FreshService instance.
-* The final link format must be *exactly*: \`[Ticket #TICKET_ID](https://[FS_DOMAIN_HERE]/a/tickets/TICKET_ID?current_tab=details)\``;
-
-        return `### 1. System Prompt\n\n${systemPrompt}\n\n### 2. User Prompt\n\n${userPrompt}`;
-
-    } else {
-        return `A specific prompt for per-ticket analysis is generated for each ticket individually. You can review the structure in the api.js file, function analyzeTicketWithGemini.`;
-    }
-}
-
-
-/**
  * Handles download click for the raw JSON data.
  */
 function handleDownload() {
@@ -170,26 +113,6 @@ function calculateGeminiCost(model, inputTokens, outputTokens) {
     const totalCost = inputCost + outputCost;
 
     return `$${totalCost.toFixed(4)}`;
-}
-
-
-/**
- * Gets the system/user prompts for overall analysis for API calls.
- * @returns {{systemPrompt: string, userPrompt: string}}
- */
-function getOverallPrompts() {
-    const fullPromptText = getRawPromptText(true); // Get the raw text
-    const systemPrompt = fullPromptText.substring(
-        fullPromptText.indexOf('### 1. System Prompt') + '### 1. System Prompt'.length,
-        fullPromptText.indexOf('### 2. User Prompt')
-    ).trim();
-    const userPrompt = fullPromptText.substring(
-        fullPromptText.indexOf('### 2. User Prompt') + '### 2. User Prompt'.length
-    ).trim();
-    return {
-        systemPrompt,
-        userPrompt
-    };
 }
 
 

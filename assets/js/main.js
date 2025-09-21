@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSettingsBadge();
     toggleRequiredIndicators();
     populateGeminiModels(); // Attempt to load models on page start
+    initializePrompts(); // NEW: Initialize the prompt datalist
     lucide.createIcons(); // Initialize any new icons
     document.body.addEventListener('click', (e) => {
         if (Notification.permission === 'default') {
@@ -100,6 +101,9 @@ clearPromptSearchBtn.addEventListener('click', () => {
     handlePromptSearch();
 });
 
+// NEW: Main Prompt Selector Listeners
+promptSelectInput.addEventListener('input', handlePromptSelection);
+
 
 // Prompts Editor Modal Listeners
 closePromptEditorBtn.addEventListener('click', () => promptEditorModal.classList.add('hidden'));
@@ -147,7 +151,7 @@ fieldSelect.addEventListener('change', updateFieldChoicesPreview);
 
 
 // API Key & Settings Listeners for real-time badge update and persistence
-[fsDomainInput, fsApiKeyInput, geminiApiKeyInput, productModulesInput, useCasesInput, apiDelayInput, rateLimitDelayInput, maxRetriesInput, atrInput, geminiModelSelect, extractionProfileSelect].forEach(input => {
+[fsDomainInput, fsApiKeyInput, geminiApiKeyInput, productModulesInput, useCasesInput, apiDelayInput, rateLimitDelayInput, maxRetriesInput, atrInput, geminiModelSelect, extractionProfileSelect, promptSelectInput].forEach(input => {
     input.addEventListener('keyup', saveSettings);
     input.addEventListener('change', saveSettings);
 });
@@ -299,6 +303,12 @@ async function startAnalysis() {
         hideProcessingAnimation();
         return;
     }
+    // NEW: Check if a prompt is selected for overall analysis
+    if (jobType === 'overall' && !currentPrompt) {
+        displayError('Please select a prompt for Overall Analysis from the dropdown.');
+        hideProcessingAnimation();
+        return;
+    }
 
 
     isPaused = false;
@@ -376,7 +386,8 @@ async function startAnalysis() {
     if (jobType === 'perTicket') {
         await runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCases);
     } else {
-        await runOverallAnalysis(geminiApiKey, selectedModel);
+        // Pass the selected prompt to the overall analysis function
+        await runOverallAnalysis(geminiApiKey, selectedModel, currentPrompt);
     }
 }
 
@@ -469,13 +480,12 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
 /**
  * Runs the overall analysis process.
  */
-async function runOverallAnalysis(geminiApiKey, selectedModel) {
+async function runOverallAnalysis(geminiApiKey, selectedModel, promptData) {
     const isDummyMode = dummyModeCheckbox.checked;
     if (isDummyMode) {
         resultsSection.classList.remove('hidden');
-        const dummyReportText = displayPromptForUser(true, true);
         displayPromptForUser(false, true);
-        displayCsvDownloads([], dummyReportText, false);
+        displayCsvDownloads([], promptData.prompt, false);
         analysisEndTime = Date.now();
         displayAnalysisStats();
         setTimeout(() => scrollToElement(resultsSection), 100);
@@ -493,7 +503,7 @@ async function runOverallAnalysis(geminiApiKey, selectedModel) {
         const {
             result,
             usage
-        } = await analyzeOverallWithGemini(geminiApiKey, selectedModel);
+        } = await analyzeOverallWithGemini(geminiApiKey, selectedModel, promptData);
         fullResponse = result;
         totalInputTokens += usage.input;
         totalOutputTokens += usage.output;
@@ -560,6 +570,12 @@ function startNewAnalysis() {
     columnSelect.disabled = true;
     ticketCountDisplay.classList.add('hidden');
     sheetData = [];
+
+    // NEW: Reset prompt selection UI
+    promptSelectInput.value = '';
+    promptDescriptionContainer.classList.add('hidden');
+    currentPrompt = null;
+
 
     fetchProgressContainer.classList.add('hidden');
     analysisProgressContainer.classList.add('hidden');

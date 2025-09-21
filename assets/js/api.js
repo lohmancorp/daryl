@@ -360,7 +360,7 @@ async function uploadFileToGemini(geminiKey, filename, jsonData) {
 /**
  * Sends all ticket data to Gemini for overall analysis using the File API.
  */
-async function analyzeOverallWithGemini(geminiKey, selectedModel) {
+async function analyzeOverallWithGemini(geminiKey, selectedModel, promptData) {
     // ... function content remains the same
     const rateLimitDelay = parseInt(rateLimitDelayInput.value, 10) * 1000 || 60000;
     const maxAttempts = parseInt(maxRetriesInput.value, 10) || 3;
@@ -379,15 +379,16 @@ async function analyzeOverallWithGemini(geminiKey, selectedModel) {
 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${geminiKey}`;
     const sanitizedDomain = fsDomainInput.value.trim().replace(/^https?:\/\//, '');
-    const { systemPrompt, userPrompt } = getOverallPrompts();
-    let finalUserPrompt = userPrompt.replace("'[FILENAME_HERE].json'", `'${filename}'`);
-    finalUserPrompt = finalUserPrompt.replace(/\[FS_DOMAIN_HERE\]/g, sanitizedDomain);
 
+    // Use the selected prompt content
+    let finalPrompt = promptData.prompt;
+    finalPrompt = finalPrompt.replace("'[FILENAME_HERE].json'", `'${filename}'`);
+    finalPrompt = finalPrompt.replace(/\[FS_DOMAIN_HERE\]/g, sanitizedDomain);
 
     const payload = {
         "contents": [{
             "parts": [{
-                "text": finalUserPrompt
+                "text": finalPrompt
             }, {
                 "fileData": {
                     "mimeType": "text/plain",
@@ -397,7 +398,7 @@ async function analyzeOverallWithGemini(geminiKey, selectedModel) {
         }],
         "systemInstruction": {
             "parts": [{
-                "text": systemPrompt
+                "text": promptData.analysis_objective
             }]
         }
     };

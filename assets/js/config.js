@@ -190,6 +190,12 @@ let totalInputTokens = 0;
 let totalOutputTokens = 0;
 let extendedAnalysesCount = 0;
 
+// NEW: Prompt selector elements
+const promptSelectInput = document.getElementById('promptSearchInput');
+const promptSelectDatalist = document.getElementById('promptSelectDatalist');
+const promptDescriptionContainer = document.getElementById('promptDescriptionContainer');
+const promptDescriptionText = document.getElementById('promptDescriptionText');
+let currentPrompt = null; // The selected prompt object
 
 // --- Global Counters for Progress ---
 let fetchedCount = 0;

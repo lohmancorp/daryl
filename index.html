@@ -253,6 +253,18 @@
                 <!-- Actual Content -->
                 <h2 class="text-xl font-semibold mb-4 border-b pb-2 text-slate-800">1. Job Configuration</h2>
 
+                <!-- NEW: Prompt Selection -->
+                <div class="mb-4">
+                    <label for="promptSearchInput" class="block text-sm font-medium text-slate-700">Select a Prompt</label>
+                    <input list="promptSelectDatalist" id="promptSearchInput" placeholder="Search and select a prompt..." class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                    <datalist id="promptSelectDatalist"></datalist>
+                </div>
+                <!-- NEW: Prompt Description -->
+                <div id="promptDescriptionContainer" class="hidden mb-4 border-l-4 border-indigo-600 bg-indigo-50 p-4 rounded-r-lg">
+                    <p class="text-sm font-medium text-slate-700 mb-1">Prompt Description:</p>
+                    <p id="promptDescriptionText" class="text-sm text-slate-600"></p>
+                </div>
+
                 <!-- Job Type Selection -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
@@ -277,15 +289,14 @@
                     </div>
                 </div>
 
-
                 <div id="ticketInputContainer">
                     <div class="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
-                        <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                        <input type="file" id="fileUpload" accept=".xlsx, .xls, .csv" class="flex-grow block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
                         />
                         <div class="flex-grow">
                             <label for="columnSelect" class="sr-only">Select Column</label>
                             <select id="columnSelect" class="block w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100" disabled>
-                                <option>Select Ticket Column</option>
+                                <option>Select column with Ticket IDs</option>
                             </select>
                         </div>
                     </div>
@@ -442,6 +453,7 @@
                                 <label for="dummyMode" class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" id="dummyMode" class="sr-only peer">
                                     <div class="w-11 h-6 bg-slate-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-indigo-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    <span class="ml-3 text-sm font-medium text-slate-900">Dummy Mode</span>
                                 </label>
                             </div>
                             <p class="mt-1 text-xs text-slate-500">Fetches data only, no AI analysis.</p>

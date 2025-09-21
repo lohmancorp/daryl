@@ -554,7 +554,7 @@ function displayPerTicketDownloadsAndSearch() {
             <div class="relative">
                 <input type="text" id="perTicketSearchInput" placeholder="Search results..." class="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg">
                 <button id="clearPerTicketSearchBtn" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700 hidden">
-                    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
         </div>
@@ -690,11 +690,21 @@ function updateProgressBar(type, current, total) {
  * Displays the prompts in a textarea or returns the text.
  */
 function displayPromptForUser(returnOnly = false, isOverall = false) {
-    let promptText = getRawPromptText(isOverall);
+    let promptText;
+    let title;
 
-    if (isOverall) {
-        const domain = fsDomainInput.value.trim().replace(/^https?:\/\//, '') || 'yourcompany.freshservice.com';
-        promptText = promptText.replace(/\[FS_DOMAIN_HERE\]/g, domain);
+    // Use the selected prompt if available, otherwise fall back to a generic message.
+    if (isOverall && currentPrompt) {
+        // For overall analysis, use the selected prompt
+        promptText = currentPrompt.prompt;
+        title = currentPrompt.name;
+        // The prompt text might contain placeholders like [FILENAME_HERE], which we'll handle in the API call, not here.
+    } else if (isOverall) {
+        // Fallback for overall if no prompt is selected
+        promptText = "No prompt was selected for overall analysis. Please select one from the Job Configuration section to use this feature.";
+    } else {
+        // Default message for per-ticket analysis
+        promptText = "A specific prompt for per-ticket analysis is generated for each ticket individually. You can review the structure in the api.js file, function analyzeTicketWithGemini.";
     }
 
     if (returnOnly) {
@@ -704,13 +714,22 @@ function displayPromptForUser(returnOnly = false, isOverall = false) {
     const reportContainer = document.createElement('div');
     reportContainer.className = 'prose max-w-none p-4 bg-slate-100 rounded-lg border border-slate-200 text-sm';
 
+    // Conditionally add a title for the prompt
+    if (title) {
+        const titleEl = document.createElement('h3');
+        titleEl.className = "text-base font-semibold text-slate-800 mb-2";
+        titleEl.textContent = `Prompt for Overall Analysis: ${title}`;
+        reportContainer.appendChild(titleEl);
+    }
+
+    // Now handle the prompt content
     if (typeof marked !== 'undefined') {
         const renderer = new marked.Renderer();
         renderer.link = (href, title, text) => {
             const link = marked.Renderer.prototype.link.call(renderer, href, title, text);
             return link.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
         };
-        reportContainer.innerHTML = marked.parse(promptText.trim(), {
+        reportContainer.innerHTML += marked.parse(promptText.trim(), {
             mangle: false,
             headerIds: false,
             renderer: renderer
@@ -728,12 +747,22 @@ function displayPromptForUser(returnOnly = false, isOverall = false) {
     copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
 
     copyButton.addEventListener('click', () => {
-        navigator.clipboard.writeText(promptText.trim()).then(() => {
+        // Use document.execCommand('copy') for broader compatibility in iFrames
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = promptText.trim();
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+            document.execCommand('copy');
             copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-600"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
             setTimeout(() => {
-                copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+                copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2d000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
             }, 2000);
-        });
+        } catch (err) {
+            console.error('Failed to copy text.', err);
+        } finally {
+            document.body.removeChild(tempTextArea);
+        }
     });
 
     promptContainer.innerHTML = '';
@@ -968,6 +997,19 @@ function updateModelDropdown() {
 
     saveSettings();
     updateSettingsBadge();
+}
+
+/**
+ * Displays the selected prompt's description.
+ * @param {object} prompt - The prompt object to display.
+ */
+function displaySelectedPromptDescription(prompt) {
+    if (prompt && prompt.description) {
+        promptDescriptionText.textContent = prompt.description;
+        promptDescriptionContainer.classList.remove('hidden');
+    } else {
+        promptDescriptionContainer.classList.add('hidden');
+    }
 }
 
 /**
