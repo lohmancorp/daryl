@@ -1,7 +1,6 @@
-# daryl
-(D)ata (A)nalysis (R)obot, makes (Y)our (L)ife easier.
-
 # D.A.R.Y.L. Setup Instructions
+
+(D)ata (A)nalysis (R)obot, makes (Y)our (L)ife easier.
 
 This document provides a comprehensive guide for setting up and running the D.A.R.Y.L. application on your local machine. Follow these steps to get started.
 
