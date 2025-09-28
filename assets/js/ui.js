@@ -12,7 +12,6 @@
  * Handles the file upload, parsing it with SheetJS.
  */
 function handleFileUpload(event) {
-    // ... function content remains the same
     const file = event.target.files[0];
     if (!file) return;
 
@@ -21,6 +20,7 @@ function handleFileUpload(event) {
     resultsSection.classList.add('hidden');
     statsSection.classList.add('hidden');
     newAnalysisContainer.classList.add('hidden');
+    tokenCountWarning.classList.add('hidden');
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -70,10 +70,10 @@ function handleFileUpload(event) {
  * Updates the UI with the number of tickets found.
  */
 function updateTicketCount(wasAutoSelected = null, header = '') {
-    // ... function content remains the same
     const selectedColumn = columnSelect.value;
     let message = '';
     let ticketIds = [];
+    tokenCountWarning.classList.add('hidden');
 
     if (selectedColumn && sheetData.length > 0) {
         ticketIds = sheetData.map(row => String(row[selectedColumn] || '').replace(/\D/g, '')).filter(id => id && id.trim() !== '');
@@ -109,7 +109,6 @@ function updateTicketCount(wasAutoSelected = null, header = '') {
  * Creates the color-coded severity pill HTML.
  */
 function getPriorityPill(priority) {
-    // ... function content remains the same
     const priorities = {
         1: { text: 'Low', color: 'bg-green-600' },
         2: { text: 'Medium', color: 'bg-yellow-500' },
@@ -124,7 +123,6 @@ function getPriorityPill(priority) {
  * Translates a status number to a human-readable string.
  */
 function getStatusText(status) {
-    // ... function content remains the same
     const statuses = { 2: "Open", 3: "Pending", 4: "Resolved", 5: "Closed" };
     return statuses[status] || 'Unknown';
 }
@@ -543,7 +541,6 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
  * Creates and displays the search and download controls for per-ticket results.
  */
 function displayPerTicketDownloadsAndSearch() {
-    // ... function content remains the same
     perTicketControlsContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center my-4">
             <div class="text-center">
@@ -575,7 +572,6 @@ function displayPerTicketDownloadsAndSearch() {
  * Handles filtering the per-ticket result cards based on search input.
  */
 function handlePerTicketSearch(event) {
-    // ... function content remains the same
     const query = event.target.value.toLowerCase().trim();
     const cards = resultsContainer.querySelectorAll('.status-card');
     document.getElementById('clearPerTicketSearchBtn').classList.toggle('hidden', !query);
@@ -594,7 +590,6 @@ function handlePerTicketSearch(event) {
  * Generates and triggers a download for the per-ticket analysis results as a CSV file.
  */
 function downloadPerTicketCsv() {
-    // ... function content remains the same
     const headers = ["Ticket ID", "Company Name", "Problem Summary", "Use-Case", "Product Module", "Ticket Type", "Ticket Status", "Severity"];
     const rows = allAnalysisResults.map(data => {
         if (data.error) return null;
@@ -628,7 +623,6 @@ function downloadPerTicketCsv() {
  * Displays an error message in the UI and provides fallback options.
  */
 function displayError(message, isFatal = true) {
-    // ... function content remains the same
     if (message) {
         errorMessage.textContent = message;
         errorMessage.classList.remove('hidden');
@@ -646,7 +640,6 @@ function displayError(message, isFatal = true) {
  * Sets up the UI for manual processing after a fatal Gemini API failure.
  */
 function displayManualFallbackUI(message, jobType) {
-    // ... function content remains the same
     displayError(message, true); // Display the core error
     resultsSection.classList.remove('hidden');
     loadingIndicator.classList.add('hidden');
@@ -775,7 +768,6 @@ function displayPromptForUser(returnOnly = false, isOverall = false) {
 // --- Logo Animation Functions ---
 
 function showProcessingAnimation() {
-    // ... function content remains the same
     isProcessing = true;
     logoImage.classList.add('hidden');
     logoVideo.classList.remove('hidden');
@@ -783,7 +775,6 @@ function showProcessingAnimation() {
 }
 
 function hideProcessingAnimation() {
-    // ... function content remains the same
     isProcessing = false;
     logoImage.classList.remove('hidden');
     logoVideo.classList.add('hidden');
@@ -793,7 +784,6 @@ function hideProcessingAnimation() {
 // --- UI Helper Functions ---
 
 function scrollToElement(element, offset = 20) {
-    // ... function content remains the same
     if (!element) return;
     const elementPosition = element.getBoundingClientRect().top;
     const offsetPosition = elementPosition + window.pageYOffset - offset;
@@ -804,7 +794,6 @@ function scrollToElement(element, offset = 20) {
 }
 
 function updateSettingsBadge() {
-    // ... function content remains the same
     let missingCount = 0;
     const isDummy = dummyModeCheckbox.checked;
 
@@ -835,7 +824,6 @@ function updateSettingsBadge() {
 }
 
 function toggleRequiredIndicators() {
-    // ... function content remains the same
     const isDummy = dummyModeCheckbox.checked;
     geminiRequiredStar.classList.toggle('hidden', isDummy);
     geminiModelRequiredStar.classList.toggle('hidden', isDummy);
@@ -875,6 +863,16 @@ function displayAnalysisStats() {
 }
 
 
+function displayTokenCountWarning(tokenCount, tokenLimit, filename) {
+    tokenCountWarning.innerHTML = `
+        <h4 class="font-bold">Token Limit Warning</h4>
+        <p class="mt-1 text-sm">The total token count for your analysis is estimated to be ${tokenCount} tokens, which exceeds the model's limit of ${tokenLimit} tokens.</p>
+        <p class="mt-2 text-sm">This analysis will likely fail. Please select a larger model (e.g., Gemini 1.5 Pro) or reduce the number of tickets.</p>
+        <p class="mt-2 text-sm font-semibold">The raw data has been uploaded to the Gemini File API with the name <code class="bg-yellow-200 p-0.5 rounded">${filename}</code> and can be used for a new analysis with a different model without re-fetching from FreshService.</p>
+    `;
+    tokenCountWarning.classList.remove('hidden');
+}
+
 
 // --- Modal Functions ---
 
@@ -892,7 +890,6 @@ function openPromptsModal() {
 
 
 async function openFieldLoader(targetId) {
-    // ... function content remains the same
     currentTargetTextarea = document.getElementById(targetId);
     fieldLoaderModal.classList.remove('hidden');
     modalContent.classList.add('hidden');
@@ -938,13 +935,11 @@ async function openFieldLoader(targetId) {
 }
 
 function closeFieldLoader() {
-    // ... function content remains the same
     fieldLoaderModal.classList.add('hidden');
     currentTargetTextarea = null;
 }
 
 function updateFieldChoicesPreview() {
-    // ... function content remains the same
     const selectedFieldId = fieldSelect.value;
     if (!selectedFieldId) {
         fieldChoicesPreview.textContent = 'Select a field to see its options.';
@@ -959,7 +954,6 @@ function updateFieldChoicesPreview() {
 }
 
 function useSelectedFieldOptions() {
-    // ... function content remains the same
     const selectedFieldId = fieldSelect.value;
     const selectedField = ticketFieldsCache.find(f => f.id == selectedFieldId);
     if (currentTargetTextarea && selectedField) {
@@ -970,7 +964,6 @@ function useSelectedFieldOptions() {
 }
 
 function updateModelDropdown() {
-    // ... function content remains the same
     const originalSelection = localStorage.getItem('geminiModel');
     const modelsToShow = availableGeminiModels;
 

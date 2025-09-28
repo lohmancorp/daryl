@@ -125,7 +125,6 @@ const deleteConfirmationInput = document.getElementById('deleteConfirmationInput
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
-
 // Privacy Settings References
 const scrubEmailsToggle = document.getElementById('scrubEmails');
 const scrubIpsToggle = document.getElementById('scrubIps');
@@ -163,6 +162,9 @@ const extendedTicketModal = document.getElementById('extendedTicketModal');
 const extendedTicketModalTitle = document.getElementById('extendedTicketModalTitle');
 const extendedTicketModalContent = document.getElementById('extendedTicketModalContent');
 const closeExtendedTicketModalBtn = document.getElementById('closeExtendedTicketModalBtn');
+
+// NEW: Overall Analysis Token Warning
+const tokenCountWarning = document.getElementById('tokenCountWarning');
 
 
 // --- Global State Variables ---

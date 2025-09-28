@@ -166,7 +166,6 @@ async function fetchFreshServiceData(ticketId, domain, apiKey, profile) {
  * Sends single ticket data to Gemini for per-ticket analysis.
  */
 async function analyzeTicketWithGemini(ticketInfo, geminiKey, selectedModel, modulesList, useCasesList) {
-    // ... function content remains the same
     const rateLimitDelay = parseInt(rateLimitDelayInput.value, 10) * 1000 || 10000;
     const maxAttempts = parseInt(maxRetriesInput.value, 10) || 5;
     let attempts = 0;
@@ -334,7 +333,6 @@ ${JSON.stringify(ticketInfo.analysisPayload, null, 2)}
  * Uploads the large JSON data file to the Gemini File API.
  */
 async function uploadFileToGemini(geminiKey, filename, jsonData) {
-    // ... function content remains the same
     console.log(`Uploading ${filename} to File API...`);
     const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${geminiKey}`;
 
@@ -361,7 +359,6 @@ async function uploadFileToGemini(geminiKey, filename, jsonData) {
  * Sends all ticket data to Gemini for overall analysis using the File API.
  */
 async function analyzeOverallWithGemini(geminiKey, selectedModel, promptData) {
-    // ... function content remains the same
     const rateLimitDelay = parseInt(rateLimitDelayInput.value, 10) * 1000 || 60000;
     const maxAttempts = parseInt(maxRetriesInput.value, 10) || 3;
     let attempts = 0;
@@ -382,7 +379,7 @@ async function analyzeOverallWithGemini(geminiKey, selectedModel, promptData) {
 
     // Use the selected prompt content
     let finalPrompt = promptData.prompt;
-    finalPrompt = finalPrompt.replace("'[FILENAME_HERE].json'", `'${filename}'`);
+    finalPrompt = finalPrompt.replace("[FILENAME_HERE].json", `'${filename}'`);
     finalPrompt = finalPrompt.replace(/\[FS_DOMAIN_HERE\]/g, sanitizedDomain);
 
     const payload = {
@@ -470,7 +467,6 @@ async function analyzeOverallWithGemini(geminiKey, selectedModel, promptData) {
  * Fetches the list of available Gemini models from the API.
  */
 async function populateGeminiModels() {
-    // ... function content remains the same
     const geminiApiKey = geminiApiKeyInput.value.trim();
     if (!geminiApiKey) {
         geminiModelSelect.innerHTML = '<option value="">Enter API Key to load models</option>';
@@ -665,6 +661,55 @@ async function countTokensWithGemini(text, geminiKey, model) {
         return 0; // Return 0 on failure to avoid breaking UI
     }
 }
+
+
+/**
+ * Counts the tokens for the overall analysis payload.
+ * This is different from countTokensWithGemini because it uses the File API.
+ * @param {string} geminiKey The Gemini API key.
+ * @param {string} selectedModel The Gemini model to use.
+ * @param {object} promptData The prompt data object.
+ * @param {string} filename The filename for the uploaded data.
+ * @param {string} fileUri The URI of the uploaded file in Gemini's File API.
+ * @returns {Promise<number>} The total number of tokens for the payload.
+ */
+async function countOverallTokensWithGemini(geminiKey, selectedModel, promptData, filename, fileUri) {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:countTokens?key=${geminiKey}`;
+    const sanitizedDomain = fsDomainInput.value.trim().replace(/^https?:\/\//, '');
+
+    const finalPrompt = promptData.prompt
+        .replace("[FILENAME_HERE].json", `'${filename}'`)
+        .replace(/\[FS_DOMAIN_HERE\]/g, sanitizedDomain);
+
+    // The countTokens endpoint does not accept systemInstruction, so we must combine it into the contents.
+    const payload = {
+        "contents": [{
+            "parts": [
+                { "text": promptData.analysis_objective },
+                { "text": finalPrompt },
+                { "fileData": { "mimeType": "text/plain", "fileUri": fileUri } }
+            ]
+        }]
+    };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error((errorData.error && errorData.error.message) || `Token count API Error: ${response.status}`);
+        }
+        const result = await response.json();
+        return result.totalTokens || 0;
+    } catch (error) {
+        console.error("Overall token counting failed:", error);
+        throw error; // Re-throw to handle in the calling function
+    }
+}
+
 
 /** Fetches the list of prompt filenames from the server. */
 async function fetchPromptList() {

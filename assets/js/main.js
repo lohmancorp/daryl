@@ -310,7 +310,6 @@ async function startAnalysis() {
         return;
     }
 
-
     isPaused = false;
     isCancelled = false;
     displayError('', false);
@@ -329,6 +328,7 @@ async function startAnalysis() {
     pauseButton.disabled = false;
     cancelButton.disabled = false;
     pauseButton.textContent = 'Pause';
+    tokenCountWarning.classList.add('hidden');
 
     resultsSection.classList.add('hidden');
     statsSection.classList.add('hidden');
@@ -432,7 +432,7 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
                     priority: ticketInfo.ticket.priority,
                     status: ticketInfo.ticket.status,
                     type: ticketInfo.ticket.type,
-                    company_name: companyDataCache[ticketInfo.department_id] || 'Unknown',
+                    company_name: companyDataCache[ticketInfo.department_id] || 'N/A',
                 };
 
             } catch (error) {
@@ -499,6 +499,35 @@ async function runOverallAnalysis(geminiApiKey, selectedModel, promptData) {
 
     let fullResponse = '';
     let analysisSucceeded = false;
+    let fileUri;
+    const filename = fileUploadInput.files[0] ? fileUploadInput.files[0].name.replace(/(\.xlsx|\.xls|\.csv)$/, '.json') : 'uploaded_data.json';
+    try {
+        const jsonData = JSON.stringify(allFetchedData, null, 2);
+        fileUri = await uploadFileToGemini(geminiApiKey, filename, jsonData);
+    } catch (uploadError) {
+        console.error("Fatal error during file upload, aborting analysis.", uploadError);
+        handleGeminiFailure(uploadError.message, 'overall');
+        return;
+    }
+
+    // Proactive token check before analysis
+    try {
+        const modelInfo = availableGeminiModels.find(m => m.name.split('/')[1] === selectedModel);
+        if (modelInfo) {
+            const tokenCount = await countOverallTokensWithGemini(geminiApiKey, selectedModel, promptData, filename, fileUri);
+            if (tokenCount > modelInfo.inputTokenLimit) {
+                displayTokenCountWarning(tokenCount, modelInfo.inputTokenLimit, filename);
+                resetControls();
+                return;
+            }
+        }
+    } catch (tokenError) {
+        console.error("Failed to perform proactive token count:", tokenError);
+        // Continue with analysis, but log the warning. The API call will fail if the token limit is actually exceeded.
+        displayError(`Warning: Could not perform a pre-flight token count. Analysis will proceed but may fail if the payload is too large. Error: ${tokenError.message}`);
+    }
+
+
     try {
         const {
             result,
@@ -591,6 +620,7 @@ function startNewAnalysis() {
 
     startButton.classList.remove('hidden');
     inProgressControls.classList.add('hidden');
+    tokenCountWarning.classList.add('hidden');
 
     scrollToElement(configSection);
 }
