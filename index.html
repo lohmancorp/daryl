@@ -261,7 +261,7 @@
 
                 <!-- Prompt Selection (Updated for Clear Button and Dropdown Arrow) -->
                 <div class="mb-4">
-                    <label for="promptSelectInput" class="block text-sm font-medium text-slate-700">Select a Prompt</label>
+                    <label for="promptSelectInput" class="block text-sm font-medium text-slate-700">Select a Prompt (Phase 1 / Analysis)</label>
                     <div class="relative mt-1">
                         <input list="promptSelectDatalist" id="promptSelectInput" placeholder="Search and select a prompt..." class="block w-full pr-14 pl-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
                         <datalist id="promptSelectDatalist"></datalist>
@@ -284,18 +284,49 @@
                     <p id="promptDescriptionText" class="text-sm text-slate-600"></p>
                 </div>
 
+                <!-- NEW: Prompt 2 Selection (Hidden by default, shown for Chunked Analysis > 20 records) -->
+                <div id="prompt2Section" class="hidden mb-4 p-4 border border-indigo-100 bg-indigo-50 rounded-lg">
+                    <label for="prompt2SelectInput" class="block text-sm font-medium text-slate-700">Select Second Prompt (Phase 2 / Synthesis)</label>
+                    <p class="text-xs text-slate-500 mb-2">This prompt will analyze the aggregated results from all chunks.</p>
+                    <div class="relative mt-1">
+                        <input list="prompt2SelectDatalist" id="prompt2SelectInput" placeholder="Search and select a second prompt..." class="block w-full pr-14 pl-3 py-2 bg-white border border-slate-300 rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+                        <datalist id="prompt2SelectDatalist"></datalist>
+
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <button id="clearPrompt2SelectionBtn" title="Clear search" class="p-1 rounded-full hover:bg-slate-200 text-slate-500 hover:text-slate-700 hidden">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                            <button id="togglePrompt2DatalistBtn" title="Show all prompts" class="p-1 rounded-full hover:bg-slate-200 text-slate-500 hover:text-slate-700 ml-1 -mr-1" type="button">
+                                <i data-lucide="chevron-down" class="w-4 h-4 pointer-events-none"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Prompt 2 Description -->
+                    <div id="prompt2DescriptionContainer" class="hidden mt-2 border-l-4 border-indigo-600 bg-white p-3 rounded-r-lg">
+                        <p class="text-sm font-medium text-slate-700 mb-1">Prompt 2 Description:</p>
+                        <p id="prompt2DescriptionText" class="text-sm text-slate-600"></p>
+                    </div>
+                </div>
+
                 <!-- Job Type Selection & Extraction Profile -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-2">Job Type</label>
-                        <div class="flex items-center space-x-6">
-                            <label for="perTicketRadio" class="flex items-center cursor-pointer">
-                                <input type="radio" id="perTicketRadio" name="jobType" value="perTicket" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500" checked>
-                                <span class="ml-2 text-sm text-slate-800">Per Ticket Analysis</span>
-                            </label>
-                            <label for="overallRadio" class="flex items-center cursor-pointer">
-                                <input type="radio" id="overallRadio" name="jobType" value="overall" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500">
-                                <span class="ml-2 text-sm text-slate-800">Overall Ticket Analysis</span>
+                        <div class="flex flex-col space-y-2">
+                            <div class="flex items-center space-x-6">
+                                <label for="perTicketRadio" class="flex items-center cursor-pointer">
+                                    <input type="radio" id="perTicketRadio" name="jobType" value="perTicket" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500" checked>
+                                    <span class="ml-2 text-sm text-slate-800">Per Ticket Analysis</span>
+                                </label>
+                                <label for="overallRadio" class="flex items-center cursor-pointer">
+                                    <input type="radio" id="overallRadio" name="jobType" value="overall" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm text-slate-800">Overall Ticket Analysis</span>
+                                </label>
+                            </div>
+                            <!-- NEW: Chunked Analysis Radio -->
+                            <label for="chunkedRadio" class="flex items-center cursor-pointer">
+                                <input type="radio" id="chunkedRadio" name="jobType" value="chunked" class="h-4 w-4 text-indigo-600 border-slate-300 focus:ring-indigo-500">
+                                <span class="ml-2 text-sm text-slate-800">Chunked Ticket Analysis</span>
                             </label>
                         </div>
                     </div>
@@ -385,6 +416,8 @@
                     <p class="ml-4 text-slate-600">Please wait...</p>
                 </div>
                 <div id="resultsContainer" class="space-y-4"></div>
+                <!-- Token Warning NEW -->
+                <div id="tokenCountWarning" class="hidden text-yellow-800 bg-yellow-100 p-3 rounded-lg mt-4 border border-yellow-200"></div>
             </div>
 
             <!-- Section 4: Stats -->

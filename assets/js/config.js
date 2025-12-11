@@ -25,10 +25,10 @@ const dummyModeCheckbox = document.getElementById('dummyMode');
 
 // Updated/New File Input Elements
 const fileUploadInput = document.getElementById('fileUpload');
-const dropZoneContainer = document.getElementById('dropZoneContainer'); // NEW: Drag & Drop Zone
-const fileNameDisplay = document.getElementById('fileNameDisplay'); // NEW: File Name Display
+const dropZoneContainer = document.getElementById('dropZoneContainer');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
 const columnSelect = document.getElementById('columnSelect');
-const columnSelectContainer = document.getElementById('columnSelectContainer'); // NEW: Container for column select dropdown
+const columnSelectContainer = document.getElementById('columnSelectContainer');
 const extractionProfileSelect = document.getElementById('extractionProfileSelect');
 const startButton = document.getElementById('startButton');
 const pauseButton = document.getElementById('pauseButton');
@@ -36,6 +36,7 @@ const cancelButton = document.getElementById('cancelButton');
 const newAnalysisButton = document.getElementById('newAnalysisButton');
 const perTicketRadio = document.getElementById('perTicketRadio');
 const overallRadio = document.getElementById('overallRadio');
+const chunkedRadio = document.getElementById('chunkedRadio'); // NEW: Chunked Analysis
 
 // Section and Container Elements
 const pageHeader = document.getElementById('pageHeader');
@@ -84,7 +85,6 @@ const settingsBadge = document.getElementById('settingsBadge');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettingsButton = document.getElementById('closeSettingsButton');
 const saveSettingsButton = document.getElementById('saveSettingsButton');
-// NEW: Added missing required stars from the settings modal
 const fsDomainRequiredStar = document.getElementById('fsDomainRequiredStar');
 const fsApiKeyRequiredStar = document.getElementById('fsApiKeyRequiredStar');
 const geminiRequiredStar = document.getElementById('geminiRequiredStar');
@@ -174,8 +174,6 @@ const closeExtendedTicketModalBtn = document.getElementById('closeExtendedTicket
 const tokenCountWarning = document.getElementById('tokenCountWarning');
 
 // NEW: Ticket Count Elements
-// Note: We need a safe fallback for the main ticket count container reference, 
-// but since the ID is present in index.html, we use the direct references here.
 const ticketCountDisplay = document.getElementById('ticketCountDisplay');
 const ticketCountText = document.getElementById('ticketCountText');
 const ticketCountDetails = document.getElementById('ticketCountDetails');
@@ -183,6 +181,16 @@ const ticketCountDetails = document.getElementById('ticketCountDetails');
 // NEW: Prompt Selection Datalist Controls
 const togglePromptDatalistBtn = document.getElementById('togglePromptDatalistBtn');
 const clearPromptSelectionBtn = document.getElementById('clearPromptSelectionBtn');
+const promptSelectInput = document.getElementById('promptSelectInput');
+
+// NEW: Prompt 2 Selection Controls (Chunked Mode)
+const prompt2Section = document.getElementById('prompt2Section');
+const prompt2SelectInput = document.getElementById('prompt2SelectInput');
+const prompt2SelectDatalist = document.getElementById('prompt2SelectDatalist');
+const clearPrompt2SelectionBtn = document.getElementById('clearPrompt2SelectionBtn');
+const togglePrompt2DatalistBtn = document.getElementById('togglePrompt2DatalistBtn');
+const prompt2DescriptionContainer = document.getElementById('prompt2DescriptionContainer');
+const prompt2DescriptionText = document.getElementById('prompt2DescriptionText');
 
 
 // --- Global State Variables ---
@@ -210,12 +218,12 @@ let totalInputTokens = 0;
 let totalOutputTokens = 0;
 let extendedAnalysesCount = 0;
 
-// NEW: Prompt selector elements
-// promptSelectInput is already referenced from the prompt editor modal, but used here too.
+// Prompt selector elements
 const promptSelectDatalist = document.getElementById('promptSelectDatalist');
 const promptDescriptionContainer = document.getElementById('promptDescriptionContainer');
 const promptDescriptionText = document.getElementById('promptDescriptionText');
 let currentPrompt = null; // The selected prompt object
+let currentPrompt2 = null; // The selected second prompt object (Chunked Mode)
 
 // --- Global Counters for Progress ---
 let fetchedCount = 0;

@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openSettingsFromOverlayBtn.addEventListener('click', openSettingsModal);
     perTicketRadio.addEventListener('change', handleJobTypeChange);
     overallRadio.addEventListener('change', handleJobTypeChange);
+    chunkedRadio.addEventListener('change', handleJobTypeChange); // NEW
 
 
     // Menu Listeners
@@ -147,6 +148,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     clearPromptSelectionBtn.addEventListener('click', handleClearPromptSelection);
 
+    // NEW: Prompt 2 Selector Listeners (Chunked Mode)
+    prompt2SelectInput.addEventListener('input', handlePrompt2Selection);
+    togglePrompt2DatalistBtn.addEventListener('click', () => {
+        prompt2SelectInput.focus();
+    });
+    clearPrompt2SelectionBtn.addEventListener('click', handleClearPrompt2Selection);
+
 
     // Prompts Editor Modal Listeners
     closePromptEditorBtn.addEventListener('click', () => promptEditorModal.classList.add('hidden'));
@@ -194,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // API Key & Settings Listeners for real-time badge update and persistence
-    [fsDomainInput, fsApiKeyInput, geminiApiKeyInput, productModulesInput, useCasesInput, apiDelayInput, rateLimitDelayInput, maxRetriesInput, atrInput, geminiModelSelect, extractionProfileSelect, promptSelectInput].forEach(input => {
+    [fsDomainInput, fsApiKeyInput, geminiApiKeyInput, productModulesInput, useCasesInput, apiDelayInput, rateLimitDelayInput, maxRetriesInput, atrInput, geminiModelSelect, extractionProfileSelect, promptSelectInput, prompt2SelectInput].forEach(input => {
         input.addEventListener('keyup', saveSettings);
         input.addEventListener('change', saveSettings);
     });
@@ -273,6 +281,8 @@ function handleExtractionProfileChange() {
  */
 function handleJobTypeChange() {
     updateModelDropdown();
+    // Re-run updateTicketCount to check prompts logic for chunked analysis
+    updateTicketCount();
     saveSettings(); // Ensure jobType is saved for next load
 }
 
@@ -375,8 +385,14 @@ async function startAnalysis() {
         hideProcessingAnimation();
         return;
     }
-    if (jobType === 'overall' && !currentPrompt) {
-        displayError('Please select a prompt for Overall Analysis from the dropdown.');
+    if ((jobType === 'overall' || jobType === 'chunked') && !currentPrompt) {
+        displayError('Please select a prompt for Analysis from the dropdown.');
+        hideProcessingAnimation();
+        return;
+    }
+    // Validation for Chunked Analysis Prompt 2
+    if (jobType === 'chunked' && !prompt2Section.classList.contains('hidden') && !currentPrompt2) {
+        displayError('Please select a second prompt for the Synthesis phase.');
         hideProcessingAnimation();
         return;
     }
@@ -468,24 +484,8 @@ async function startAnalysis() {
         }
     }
 
-    // --- Upload JSON to Gemini File API (Only needed for Overall Analysis and if not in dummy mode) ---
-    // Perform upload once here if overall analysis is chosen
-    if (jobType === 'overall' && !isDummyMode) {
-        try {
-            const filename = fileUploadInput.files[0] ? fileUploadInput.files[0].name.replace(/(\.xlsx|\.xls|\.csv|\.json)$/, '.json') : 'uploaded_data.json';
-            const jsonData = JSON.stringify(allFetchedData, null, 2);
-            fileUri = await uploadFileToGemini(geminiApiKey, filename, jsonData); // Store URI for later use
-        } catch (uploadError) {
-            console.error("Fatal error during file upload, aborting analysis.", uploadError);
-            handleGeminiFailure(uploadError.message, 'overall');
-            return;
-        }
-    }
-
     // Check for cancellation after data acquisition
     if (isCancelled) {
-        // FIX: Clean up uploaded file if it exists and was uploaded
-        if (fileUri) await deleteFileFromGemini(geminiApiKey, fileUri);
         resetControls('Analysis Cancelled');
         return;
     }
@@ -493,23 +493,24 @@ async function startAnalysis() {
     // Check if any valid data was acquired
     if (allFetchedData.length === 0 || allFetchedData.every(t => t.error)) {
         displayError('No valid ticket data was acquired to proceed with analysis.', true);
-        // FIX: Clean up uploaded file if it exists and was uploaded
-        if (fileUri) await deleteFileFromGemini(geminiApiKey, fileUri);
         resetControls();
         return;
     }
 
 
     // --- Analysis Phase ---
-    console.log(`Starting ${jobType} Analysis with Gemini...`); // FIX: Log when analysis starts
+    console.log(`Starting ${jobType} Analysis with Gemini...`);
 
     analysisProgressContainer.classList.remove('hidden');
 
-    // Set up timer interval, accommodating for both fetch and analysis phase if fetch was needed
+    // Set up timer interval
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
-        const totalAnalysisUnits = jobType === 'overall' ? 1 : allFetchedData.length;
-        updateProgressBar('analysis', analyzedCount, totalAnalysisUnits);
+        const totalAnalysisUnits = jobType === 'perTicket' ? allFetchedData.length : 1;
+        // In chunked mode, we update manually within the loop
+        if (jobType !== 'chunked') {
+            updateProgressBar('analysis', analyzedCount, totalAnalysisUnits);
+        }
         if (fetchPhaseNeeded) {
             updateProgressBar('fetch', fetchedCount, ticketIds.length);
         }
@@ -517,12 +518,27 @@ async function startAnalysis() {
 
 
     if (jobType === 'perTicket') {
-        // FIX: Pass fsDomain
         await runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCases, fsDomain);
+    } else if (jobType === 'chunked') {
+        // New Chunked Analysis Mode
+        await runChunkedAnalysis(geminiApiKey, selectedModel, currentPrompt, currentPrompt2, fsDomain);
     } else {
-        // FIX: Pass fileUri and fsDomain to overall analysis
+        // Overall Analysis
+        // Perform upload once here for overall analysis
+        if (!isDummyMode) {
+            try {
+                const filename = fileUploadInput.files[0] ? fileUploadInput.files[0].name.replace(/(\.xlsx|\.xls|\.csv|\.json)$/, '.json') : 'uploaded_data.json';
+                const jsonData = JSON.stringify(allFetchedData, null, 2);
+                fileUri = await uploadFileToGemini(geminiApiKey, filename, jsonData); // Store URI for later use
+            } catch (uploadError) {
+                console.error("Fatal error during file upload, aborting analysis.", uploadError);
+                handleGeminiFailure(uploadError.message, 'overall');
+                return;
+            }
+        }
+        
         await runOverallAnalysis(geminiApiKey, selectedModel, currentPrompt, fsDomain, fileUri);
-        // FIX: Clean up uploaded file after analysis
+        // Clean up uploaded file after analysis
         if (fileUri) await deleteFileFromGemini(geminiApiKey, fileUri);
     }
 }
@@ -530,11 +546,7 @@ async function startAnalysis() {
 
 /**
  * Runs the per-ticket analysis process.
- * @param {string} geminiApiKey The Gemini API key.
- * @param {string} selectedModel The selected Gemini model.
- * @param {string} modules The comma/newline separated list of product modules.
- * @param {string} useCases The comma/newline separated list of use cases.
- * @param {string} fsDomain The FreshService domain for link construction.
+ * ... (No changes here, kept existing logic)
  */
 async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCases, fsDomain) {
     const isDummyMode = dummyModeCheckbox.checked;
@@ -561,8 +573,6 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
                     priority: ticketInfo.ticket.priority,
                     status: ticketInfo.ticket.status,
                     type: ticketInfo.ticket.type,
-                    // Use company name if present in the fetched data (for 'upload-extract')
-                    // otherwise, check the live-fetched or pre-filled cache (for Freshservice fetches)
                     company_name: ticketInfo.company_name || companyDataCache[ticketInfo.department_id] || 'N/A',
                 };
                 allAnalysisResults.push(resultData);
@@ -572,7 +582,6 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
         displayPerTicketDownloadsAndSearch();
         allAnalysisResults.forEach((result, index) => {
             const rawData = allFetchedData[index]; // Get corresponding raw data
-            // FIX: Pass fsDomain to displayResult
             displayResult(result, rawData, fsDomain);
         });
 
@@ -598,20 +607,16 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
             resultData = { ticket_id: ticketInfo.ticketId || (ticketInfo.ticket ? ticketInfo.ticket.id : 'N/A'), error: ticketInfo.error };
         } else {
             try {
-                // Call includes geminiApiKey and selectedModel
                 const { result, usage } = await analyzeTicketWithGemini(ticketInfo, geminiApiKey, selectedModel, modules, useCases);
                 totalInputTokens += usage.input;
                 totalOutputTokens += usage.output;
 
-                // Combine fetched data with analysis result
                 resultData = {
                     ...result,
                     ticket_id: ticketInfo.ticket.id,
                     priority: ticketInfo.ticket.priority,
                     status: ticketInfo.ticket.status,
                     type: ticketInfo.ticket.type,
-                    // Use company name if present in the fetched data (for 'upload-extract')
-                    // otherwise, check the live-fetched or pre-filled cache (for Freshservice fetches)
                     company_name: ticketInfo.company_name || companyDataCache[ticketInfo.department_id] || 'N/A',
                 };
 
@@ -643,14 +648,12 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
 
         allAnalysisResults.forEach((result, index) => {
             const rawData = allFetchedData[index]; // Get corresponding raw data
-            // FIX: Pass fsDomain to displayResult
             displayResult(result, rawData, fsDomain);
         });
 
         displayAnalysisStats();
         setTimeout(() => scrollToElement(resultsSection), 100);
 
-        // Play success notifications
         playNotificationSound('success');
         showOsNotification('Analysis Complete!', 'Your per-ticket analysis is ready.');
     }
@@ -659,12 +662,171 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
 }
 
 /**
+ * Runs the chunked ticket analysis process.
+ * Phase 1: Chunking and Batch Analysis.
+ * Phase 2: Synthesis.
+ */
+async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2, fsDomain) {
+    const isDummyMode = dummyModeCheckbox.checked;
+    const CHUNK_SIZE = 20;
+    
+    // Determine the base filename for intermediate files
+    let baseFilename = fileUploadInput.files[0] ? fileUploadInput.files[0].name : 'dataset';
+    baseFilename = baseFilename.substring(0, baseFilename.lastIndexOf('.')) || baseFilename;
+
+    analysisProgressContainer.classList.remove('hidden');
+    analysisProgressText.textContent = 'Starting Chunked Analysis...';
+    
+    // --- Chunking Data ---
+    const chunks = [];
+    for (let i = 0; i < allFetchedData.length; i += CHUNK_SIZE) {
+        chunks.push(allFetchedData.slice(i, i + CHUNK_SIZE));
+    }
+    
+    const chunkResults = []; // To store intermediate JSON results
+    
+    // --- Phase 1: Batch Processing ---
+    for (let i = 0; i < chunks.length; i++) {
+        if (isCancelled) break;
+        while (isPaused) { await new Promise(resolve => setTimeout(resolve, 200)); if (isCancelled) break; }
+        
+        const chunkIndex = i + 1;
+        const currentChunk = chunks[i];
+        const chunkFilename = `${baseFilename}_${String(chunkIndex).padStart(2, '0')}.json`;
+        
+        analysisProgressText.textContent = `Processing Chunk ${chunkIndex} of ${chunks.length} (${currentChunk.length} records)...`;
+        updateProgressBar('analysis', chunkIndex, chunks.length + 1); // +1 for final synthesis step
+
+        if (isDummyMode) {
+            // Mock output for chunk
+            const dummyOutput = `DUMMY RESULT FOR CHUNK ${chunkIndex}\n\nProcessed ${currentChunk.length} tickets using prompt "${prompt1.name}".`;
+            chunkResults.push({
+                filename: chunkFilename,
+                content: dummyOutput,
+                tickets: currentChunk // Keep reference to raw data if needed
+            });
+            await new Promise(resolve => setTimeout(resolve, 500)); // Fake delay
+        } else {
+            try {
+                // Prepare chunk data for upload
+                const chunkDataStr = JSON.stringify(currentChunk, null, 2);
+                const chunkFileUri = await uploadFileToGemini(geminiApiKey, chunkFilename, chunkDataStr);
+                
+                // Analyze chunk with Prompt 1
+                const { result, usage } = await analyzeOverallWithGemini(geminiApiKey, selectedModel, prompt1, fsDomain, chunkFileUri);
+                totalInputTokens += usage.input;
+                totalOutputTokens += usage.output;
+                
+                // Save result to memory (Dataset_XX.json)
+                chunkResults.push({
+                    filename: chunkFilename.replace('.json', '_result.json'), // distinct name for result
+                    content: result,
+                    rawChunkFilename: chunkFilename
+                });
+                
+                // Cleanup chunk input file
+                await deleteFileFromGemini(geminiApiKey, chunkFileUri);
+                
+            } catch (error) {
+                console.error(`Error processing chunk ${chunkIndex}:`, error);
+                handleGeminiFailure(`Chunk ${chunkIndex} failed: ${error.message}`, 'chunked');
+                return;
+            }
+        }
+    }
+
+    if (isCancelled) {
+        resetControls('Analysis Cancelled');
+        return;
+    }
+
+    // --- Phase 2: Synthesis ---
+    analysisProgressText.textContent = 'Synthesizing results (Phase 2)...';
+    updateProgressBar('analysis', chunks.length + 1, chunks.length + 1);
+
+    // If only 1 chunk and no Prompt 2 selected (<=20 records case), just show Prompt 1 result
+    // If >1 chunk, Prompt 2 is required and used.
+    let finalReport = '';
+    let analysisSucceeded = false;
+
+    if (chunks.length === 1 && !prompt2) {
+        // Single chunk case, direct output
+        finalReport = chunkResults[0].content;
+        analysisSucceeded = true;
+    } else {
+        // Multi-chunk synthesis
+        if (!prompt2 && !isDummyMode) {
+             // Should be caught by validation, but safeguard here
+             displayError("Synthesis Prompt (Prompt 2) is missing for multi-chunk analysis.", true);
+             resetControls();
+             return;
+        }
+
+        const synthesisInputFilename = `${baseFilename}_aggregated_results.json`;
+        // Aggregate all chunk outputs into one JSON array
+        const aggregatedData = chunkResults.map(c => ({
+            chunk: c.filename,
+            analysis: c.content
+        }));
+        
+        if (isDummyMode) {
+            finalReport = `## DUMMY SYNTHESIS REPORT\n\nAggregated ${chunks.length} chunks.\nUsed Prompt 2: "${prompt2 ? prompt2.name : 'N/A'}"\n\n---\n${prompt2 ? prompt2.prompt : 'No prompt text'}`;
+            analysisSucceeded = true;
+        } else {
+            try {
+                // Upload aggregated results
+                const aggregatedJsonStr = JSON.stringify(aggregatedData, null, 2);
+                const aggregatedFileUri = await uploadFileToGemini(geminiApiKey, synthesisInputFilename, aggregatedJsonStr);
+                
+                // Run Prompt 2
+                const { result, usage } = await analyzeOverallWithGemini(geminiApiKey, selectedModel, prompt2, fsDomain, aggregatedFileUri);
+                finalReport = result;
+                totalInputTokens += usage.input;
+                totalOutputTokens += usage.output;
+                analysisSucceeded = true;
+                
+                // Cleanup
+                await deleteFileFromGemini(geminiApiKey, aggregatedFileUri);
+
+            } catch (error) {
+                console.error("Synthesis phase failed:", error);
+                handleGeminiFailure(`Synthesis failed: ${error.message}`, 'chunked');
+                return;
+            }
+        }
+    }
+
+    analysisEndTime = Date.now();
+
+    // --- Display Results ---
+    if (!isCancelled) {
+        const { markdownReport, csvs } = parseOverallReport(finalReport);
+
+        resultsSection.classList.remove('hidden');
+        loadingIndicator.classList.add('hidden');
+
+        // Display Final Report
+        displayOverallReport(markdownReport);
+        
+        // Custom Downloads for Chunked Mode
+        displayChunkedDownloads(chunkResults, finalReport, analysisSucceeded);
+        
+        displayAnalysisStats();
+        setTimeout(() => scrollToElement(resultsSection), 100);
+
+        if (analysisSucceeded) {
+            playNotificationSound('success');
+            showOsNotification('Analysis Complete!', 'Your Chunked Ticket Analysis is ready.');
+        }
+    }
+    
+    resetControls(isCancelled ? 'Analysis Cancelled' : undefined);
+}
+
+
+/**
  * Runs the overall analysis process.
- * @param {string} geminiApiKey The Gemini API key.
- * @param {string} selectedModel The selected Gemini model.
- * @param {object} promptData The selected prompt object.
- * @param {string} fsDomain The FreshService domain for link construction.
- * @param {string} fileUri The URI of the uploaded file on the Gemini File API.
+ * (Kept existing function)
  */
 async function runOverallAnalysis(geminiApiKey, selectedModel, promptData, fsDomain, fileUri) {
     const isDummyMode = dummyModeCheckbox.checked;
@@ -789,7 +951,11 @@ function startNewAnalysis() {
 
     // Reset prompt selection UI
     promptSelectInput.value = '';
-    handleClearPromptSelection(false); // Clear prompt selection without re-running updateTicketCount
+    handleClearPromptSelection(false); 
+    
+    // Reset Prompt 2 UI
+    prompt2SelectInput.value = '';
+    handleClearPrompt2Selection();
 
     // Reset extraction profile and update UI to match
     extractionProfileSelect.value = 'light';

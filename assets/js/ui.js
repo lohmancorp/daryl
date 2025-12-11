@@ -217,16 +217,15 @@ function updateTicketCount(wasAutoSelected = null, header = '') {
 
     if (sheetData.length > 0) {
         if (isUploadExtract) {
-            // JSON Extract Mode: The array elements ARE the tickets
-            // We verify the data structure by checking for ticket.id
+            // JSON Extract Mode
             ticketIds = sheetData.map(t => t.ticket ? (t.ticket.id || 'N/A') : 'N/A').filter(id => id && id !== 'N/A');
             message = `Found ${ticketIds.length} ticket records in the uploaded JSON Extract.`;
             details = 'Ready for immediate AI analysis.';
-            columnSelect.disabled = true; // No column selection needed
-            columnSelectContainer.classList.add('hidden'); // Hide column selector
+            columnSelect.disabled = true;
+            columnSelectContainer.classList.add('hidden');
 
         } else {
-            // Light/Extended Mode: Need to extract IDs from the selected column
+            // Light/Extended Mode
             const selectedColumn = columnSelect.value;
             if (selectedColumn) {
                 ticketIds = sheetData.map(row => {
@@ -256,11 +255,12 @@ function updateTicketCount(wasAutoSelected = null, header = '') {
     } else {
         ticketCountDisplay.classList.add('hidden');
         analysisSection.classList.add('hidden');
+        // Ensure prompt 2 is hidden if no file
+        prompt2Section.classList.add('hidden');
         return;
     }
 
     if (message) {
-        // Rule 7: Format like Prompt Description
         const baseClass = isUploadExtract ? 'border-green-600 bg-green-50' : 'border-blue-600 bg-blue-50';
         ticketCountDisplay.className = `border-l-4 ${baseClass} p-4 rounded-r-lg`;
         ticketCountDisplay.classList.remove('hidden');
@@ -270,6 +270,14 @@ function updateTicketCount(wasAutoSelected = null, header = '') {
         ticketCountDetails.classList.toggle('hidden', !details);
     } else {
         ticketCountDisplay.classList.add('hidden');
+    }
+
+    // --- NEW: Handle Chunked Analysis UI Logic ---
+    const jobType = document.querySelector('input[name="jobType"]:checked').value;
+    if (jobType === 'chunked' && ticketIds.length > 20) {
+        prompt2Section.classList.remove('hidden');
+    } else {
+        prompt2Section.classList.add('hidden');
     }
 
     if (ticketIds.length > 0) {
@@ -315,6 +323,180 @@ function handleClearPromptSelection(shouldUpdateCount = true) {
         updateTicketCount();
         saveSettings();
     }
+}
+
+/**
+ * Handles the selection of a second prompt (for Chunked mode).
+ */
+function handlePrompt2Selection() {
+    const selectedPromptName = prompt2SelectInput.value;
+    const selectedPrompt = allPrompts.find(p => p.name === selectedPromptName);
+
+    if (selectedPrompt) {
+        currentPrompt2 = selectedPrompt;
+        prompt2DescriptionText.textContent = selectedPrompt.description;
+        prompt2DescriptionContainer.classList.remove('hidden');
+        clearPrompt2SelectionBtn.classList.remove('hidden');
+    } else {
+        currentPrompt2 = null;
+        prompt2DescriptionContainer.classList.add('hidden');
+        prompt2DescriptionText.textContent = '';
+        clearPrompt2SelectionBtn.classList.add('hidden');
+    }
+}
+
+/**
+ * Clears the selected prompt 2.
+ */
+function handleClearPrompt2Selection() {
+    prompt2SelectInput.value = '';
+    prompt2DescriptionContainer.classList.add('hidden');
+    prompt2DescriptionText.textContent = '';
+    currentPrompt2 = null;
+    clearPrompt2SelectionBtn.classList.add('hidden');
+}
+
+
+/**
+ * Creates and displays specific download buttons for the Chunked Analysis workflow.
+ */
+function displayChunkedDownloads(chunkResults, markdownReport, analysisSucceeded = true) {
+    downloadContainer.innerHTML = '';
+
+    // 1. Button to download all intermediate chunk JSONs
+    if (chunkResults && chunkResults.length > 0) {
+        const intermediateBtn = document.createElement('button');
+        intermediateBtn.className = "inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 mr-2 mb-2";
+        intermediateBtn.textContent = "Download Intermediate Results (JSON)";
+        intermediateBtn.addEventListener('click', () => {
+            // Download as a single JSON array of result objects
+            const dataStr = JSON.stringify(chunkResults, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "chunked_analysis_intermediate.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        downloadContainer.appendChild(intermediateBtn);
+    }
+
+    // 2. Standard Report Download Buttons (Copy, PDF, CSVs extracted from report)
+    if (markdownReport && analysisSucceeded) {
+        // Copy Report Button (RAW HTML)
+        const copyButton = document.createElement('button');
+        copyButton.className = "inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2 mb-2";
+        copyButton.textContent = "Copy Report (Raw HTML)";
+        copyButton.addEventListener('click', () => {
+            const reportElement = resultsContainer.querySelector('.prose');
+            if (!reportElement) return;
+
+            // NEW: Copy raw HTML code instead of rendered text
+            const rawHtml = reportElement.innerHTML;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = rawHtml;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = "Copied!";
+                    copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+                    copyButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                        copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+                        copyButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                    }, 2000);
+                }
+            } catch (err) {
+                console.error('Failed to copy text.', err);
+            }
+            document.body.removeChild(tempTextArea);
+        });
+        downloadContainer.appendChild(copyButton);
+
+        // Download PDF Button
+        const downloadPdfButton = document.createElement('button');
+        downloadPdfButton.className = "inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-2 mb-2";
+        downloadPdfButton.textContent = "Download Report (PDF)";
+        downloadPdfButton.addEventListener('click', () => {
+             // Reusing existing PDF logic
+             const reportElement = resultsContainer.querySelector('.prose');
+             const headerElement = document.getElementById('pageHeader');
+             if (reportElement && typeof window.html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
+                 const originalFont = reportElement.style.fontFamily;
+                 reportElement.style.fontFamily = "'Helvetica', 'Arial', sans-serif";
+                 headerElement.style.display = 'none';
+                 requestAnimationFrame(() => {
+                     setTimeout(() => {
+                         html2canvas(reportElement, { scale: 2, useCORS: true, windowWidth: reportElement.scrollWidth, windowHeight: reportElement.scrollHeight }).then(canvas => {
+                             reportElement.style.fontFamily = originalFont;
+                             headerElement.style.display = 'flex';
+                             const { jsPDF } = window.jspdf;
+                             const pdf = new jsPDF('p', 'mm', 'a4');
+                             const imgData = canvas.toDataURL('image/png');
+                             const pdfWidth = pdf.internal.pageSize.getWidth();
+                             const pdfHeight = pdf.internal.pageSize.getHeight();
+                             const imgProps = pdf.getImageProperties(imgData);
+                             const pdfImageHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                             
+                             // Simple multipage logic
+                             let heightLeft = pdfImageHeight;
+                             let position = 0;
+                             
+                             pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
+                             heightLeft -= pdfHeight;
+                             
+                             while (heightLeft >= 0) {
+                               position = heightLeft - pdfImageHeight;
+                               pdf.addPage();
+                               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
+                               heightLeft -= pdfHeight;
+                             }
+                             
+                             pdf.save('DARYL-Chunked-Report.pdf');
+                         });
+                     }, 100);
+                 });
+             }
+        });
+        downloadContainer.appendChild(downloadPdfButton);
+        
+        // Extract CSVs from the report if any are embedded in code blocks
+        const { csvs } = parseOverallReport(markdownReport); // Reuse parser to find CSV blocks
+        csvs.forEach(csv => {
+            const button = document.createElement('button');
+            button.className = "inline-block bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mr-2 mb-2";
+            button.textContent = `Download ${csv.filename}`;
+            button.addEventListener('click', () => {
+                const blob = new Blob([csv.content], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = csv.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+            downloadContainer.appendChild(button);
+        });
+    }
+
+    // Always add the raw retrieved data JSON download button
+    const jsonButton = document.createElement('button');
+    jsonButton.className = "inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 mb-2";
+    jsonButton.textContent = "Download Raw Source Data (JSON)";
+    jsonButton.addEventListener('click', handleDownload); // Uses global handleDownload
+    downloadContainer.appendChild(jsonButton);
+
+    downloadContainer.classList.remove('hidden');
 }
 
 
@@ -638,23 +820,17 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
         // Button 1: Copy Report
         const copyButton = document.createElement('button');
         copyButton.className = "inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2 mb-2";
-        copyButton.textContent = "Copy Report";
+        copyButton.textContent = "Copy Report (Raw HTML)"; // Updated label
         copyButton.addEventListener('click', () => {
             const reportElement = resultsContainer.querySelector('.prose');
             if (!reportElement) return;
 
-            // Use legacy execCommand for broader compatibility (especially in http contexts)
-            const reportHTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; max-width: 1024px; margin: 0 auto;">${reportElement.innerHTML}</div>`;
-            const tempContainer = document.createElement('div');
-            tempContainer.style.position = 'absolute';
-            tempContainer.style.left = '-9999px';
-            tempContainer.innerHTML = reportHTML;
-            document.body.appendChild(tempContainer);
-
-            const range = document.createRange();
-            range.selectNode(tempContainer);
-            window.getSelection().removeAllRanges();
-            window.getSelection().addRange(range);
+            // Updated Copy Logic to copy Raw HTML
+            const rawHtml = reportElement.innerHTML;
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = rawHtml;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
 
             try {
                 const successful = document.execCommand('copy');
@@ -673,8 +849,7 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
                 console.error('Failed to copy text.', err);
             }
 
-            window.getSelection().removeAllRanges();
-            document.body.removeChild(tempContainer);
+            document.body.removeChild(tempTextArea);
         });
         downloadContainer.appendChild(copyButton);
 

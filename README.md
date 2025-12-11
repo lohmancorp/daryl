@@ -72,120 +72,19 @@ The local server runs over HTTPS to avoid browser security restrictions. This re
 
     You should now have `daryl.local.crt` and `daryl.local.key` in `~/certs/`.
 
-## Host File Configuration for `daryl.local`
-
-To make sure `https://daryl.local` resolves correctly to your local machine, you need to update your system's hosts file so that `daryl.local` points to `localhost` (`127.0.0.1`).
-
-### macOS
-
-1. **Open Terminal.**
-
-2. **Create a backup of your current hosts file (optional but recommended):**
-
-    ```bash
-    sudo cp /etc/hosts /etc/hosts.backup
-    ```
-
-3. **Edit the hosts file:**
-
-    ```bash
-    sudo nano /etc/hosts
-    ```
-
-4. **Add the following line at the end of the file (or ensure it exists):**
-
-    ```text
-    127.0.0.1   daryl.local
-    ```
-
-    This tells your system that `daryl.local` should resolve to `localhost`.
-
-5. **Save and exit `nano`:**
-
-    - Press `Ctrl + O`, then `Enter` to save.
-    - Press `Ctrl + X` to exit.
-
-6. **(Optional) Flush DNS cache to apply changes immediately:**
-
-    ```bash
-    sudo dscacheutil -flushcache
-    sudo killall -HUP mDNSResponder
-    ```
-
-7. **Test it:**
-
-    Open your browser and try navigating to:
-
-    ```text
-    https://daryl.local:8000
-    ```
-
-    (Adjust the port if `server.py` uses a different one.)
-
-### Windows
-
-1. **Open Notepad as Administrator:**
-
-    - Click the **Start** menu, type `Notepad`.
-    - Right-click on **Notepad** and choose **Run as administrator**.
-
-2. **Open the hosts file:**
-
-    - In Notepad, go to **File > Open...**
-    - Navigate to:
-
-      ```text
-      C:\Windows\System32\drivers\etc
-      ```
-
-    - In the bottom-right file type dropdown, select **All Files (*.*)**.
-    - Select the `hosts` file and click **Open**.
-
-3. **Add the following line at the end of the file:**
-
-    ```text
-    127.0.0.1   daryl.local
-    ```
-
-    This maps `daryl.local` to `localhost`.
-
-4. **Save the file:**
-
-    - Go to **File > Save**.
-    - Close Notepad.
-
-5. **(Optional) Flush DNS cache to apply changes immediately:**
-
-    - Open **Command Prompt** as Administrator (Start menu → type `cmd` → right-click → **Run as administrator**).
-    - Run:
-
-      ```bat
-      ipconfig /flushdns
-      ```
-
-6. **Test it:**
-
-    Open your browser and go to:
-
-    ```text
-    https://daryl.local:8000
-    ```
-
-    (Again, adjust the port if needed.)
-
 ## Running the Application
 
 Open a terminal in the project's root directory and run the command below. The server will start, and the application will automatically open in your default web browser.
 
   * **On macOS / Linux:**
 
-    ```bash
+    ```
     python3 server.py
     ```
 
   * **On Windows:**
 
-    ```bat
+    ```
     python server.py
     ```
 

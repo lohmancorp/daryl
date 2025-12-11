@@ -21,6 +21,8 @@ async function initializePrompts() {
         populatePromptDatalist(allPrompts);
         // Re-run selection handling in case a prompt was loaded from localStorage
         handlePromptSelection(false);
+        // Handle Prompt 2 selection if applicable
+        handlePrompt2Selection(); 
     } catch (error) {
         console.error("Error initializing prompts:", error);
         promptsTableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-500">${error.message}</td></tr>`;
@@ -112,15 +114,29 @@ function handlePromptSearch() {
 
 /**
  * Populates the datalist for prompt selection in the main UI.
+ * Now handles both the primary prompt list and the secondary prompt list.
  * @param {Array} prompts - The array of prompt objects.
  */
 function populatePromptDatalist(prompts) {
-    promptSelectDatalist.innerHTML = '';
-    prompts.forEach(prompt => {
-        const option = document.createElement('option');
-        option.value = prompt.name;
-        promptSelectDatalist.appendChild(option);
-    });
+    // Populate Prompt 1 List
+    if (promptSelectDatalist) {
+        promptSelectDatalist.innerHTML = '';
+        prompts.forEach(prompt => {
+            const option = document.createElement('option');
+            option.value = prompt.name;
+            promptSelectDatalist.appendChild(option);
+        });
+    }
+
+    // Populate Prompt 2 List (Chunked Mode)
+    if (typeof prompt2SelectDatalist !== 'undefined' && prompt2SelectDatalist) {
+        prompt2SelectDatalist.innerHTML = '';
+        prompts.forEach(prompt => {
+            const option = document.createElement('option');
+            option.value = prompt.name;
+            prompt2SelectDatalist.appendChild(option);
+        });
+    }
 }
 
 
@@ -148,6 +164,42 @@ function handlePromptSelection(shouldUpdateCount = true) {
         updateTicketCount();
         saveSettings();
     }
+}
+
+/**
+ * Handles the selection of the second prompt (Synthesis) for Chunked Mode.
+ */
+function handlePrompt2Selection() {
+    // prompt2SelectInput is defined in config.js
+    if (typeof prompt2SelectInput === 'undefined') return;
+
+    const selectedPromptName = prompt2SelectInput.value;
+    const selectedPrompt = allPrompts.find(p => p.name === selectedPromptName);
+
+    if (selectedPrompt) {
+        currentPrompt2 = selectedPrompt;
+        prompt2DescriptionText.textContent = selectedPrompt.description;
+        prompt2DescriptionContainer.classList.remove('hidden');
+        clearPrompt2SelectionBtn.classList.remove('hidden');
+    } else {
+        currentPrompt2 = null;
+        prompt2DescriptionContainer.classList.add('hidden');
+        prompt2DescriptionText.textContent = '';
+        clearPrompt2SelectionBtn.classList.add('hidden');
+    }
+}
+
+/**
+ * Clears the selection for Prompt 2.
+ */
+function handleClearPrompt2Selection() {
+    if (typeof prompt2SelectInput === 'undefined') return;
+    
+    prompt2SelectInput.value = '';
+    prompt2DescriptionContainer.classList.add('hidden');
+    prompt2DescriptionText.textContent = '';
+    currentPrompt2 = null;
+    clearPrompt2SelectionBtn.classList.add('hidden');
 }
 
 
