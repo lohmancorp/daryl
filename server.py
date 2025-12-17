@@ -11,7 +11,7 @@ import re
 import urllib.parse
 
 HOST = "daryl.local"
-PORT = 8001
+PORT = 8000
 CERTFILE = os.path.expanduser("~/certs/daryl.local.crt")
 KEYFILE  = os.path.expanduser("~/certs/daryl.local.key")
 SERVE_DIR = os.getcwd()
