@@ -391,7 +391,7 @@ function displayChunkedDownloads(chunkResults, markdownReport, analysisSucceeded
         copyButton.className = "inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2 mb-2";
         copyButton.textContent = "Copy Report (Raw HTML)";
         copyButton.addEventListener('click', () => {
-            const reportElement = resultsContainer.querySelector('.prose');
+            const reportElement = resultsContainer.querySelector('.prose') || resultsContainer.querySelector('iframe')?.contentDocument?.body;
             if (!reportElement) return;
 
             // NEW: Copy raw HTML code instead of rendered text
@@ -426,48 +426,52 @@ function displayChunkedDownloads(chunkResults, markdownReport, analysisSucceeded
         downloadPdfButton.className = "inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-2 mb-2";
         downloadPdfButton.textContent = "Download Report (PDF)";
         downloadPdfButton.addEventListener('click', () => {
-             // Reusing existing PDF logic
-             const reportElement = resultsContainer.querySelector('.prose');
-             const headerElement = document.getElementById('pageHeader');
-             if (reportElement && typeof window.html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
-                 const originalFont = reportElement.style.fontFamily;
-                 reportElement.style.fontFamily = "'Helvetica', 'Arial', sans-serif";
-                 headerElement.style.display = 'none';
-                 requestAnimationFrame(() => {
-                     setTimeout(() => {
-                         html2canvas(reportElement, { scale: 2, useCORS: true, windowWidth: reportElement.scrollWidth, windowHeight: reportElement.scrollHeight }).then(canvas => {
-                             reportElement.style.fontFamily = originalFont;
-                             headerElement.style.display = 'flex';
-                             const { jsPDF } = window.jspdf;
-                             const pdf = new jsPDF('p', 'mm', 'a4');
-                             const imgData = canvas.toDataURL('image/png');
-                             const pdfWidth = pdf.internal.pageSize.getWidth();
-                             const pdfHeight = pdf.internal.pageSize.getHeight();
-                             const imgProps = pdf.getImageProperties(imgData);
-                             const pdfImageHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                             
-                             // Simple multipage logic
-                             let heightLeft = pdfImageHeight;
-                             let position = 0;
-                             
-                             pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
-                             heightLeft -= pdfHeight;
-                             
-                             while (heightLeft >= 0) {
-                               position = heightLeft - pdfImageHeight;
-                               pdf.addPage();
-                               pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
-                               heightLeft -= pdfHeight;
-                             }
-                             
-                             pdf.save('DARYL-Chunked-Report.pdf');
-                         });
-                     }, 100);
-                 });
-             }
+            // Reusing existing PDF logic
+            let reportElement = resultsContainer.querySelector('.prose');
+            if (!reportElement && resultsContainer.querySelector('iframe')) {
+                reportElement = resultsContainer.querySelector('iframe').contentDocument.body;
+            }
+
+            const headerElement = document.getElementById('pageHeader');
+            if (reportElement && typeof window.html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
+                const originalFont = reportElement.style.fontFamily;
+                reportElement.style.fontFamily = "'Helvetica', 'Arial', sans-serif";
+                headerElement.style.display = 'none';
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                        html2canvas(reportElement, { scale: 2, useCORS: true, windowWidth: reportElement.scrollWidth, windowHeight: reportElement.scrollHeight }).then(canvas => {
+                            reportElement.style.fontFamily = originalFont;
+                            headerElement.style.display = 'flex';
+                            const { jsPDF } = window.jspdf;
+                            const pdf = new jsPDF('p', 'mm', 'a4');
+                            const imgData = canvas.toDataURL('image/png');
+                            const pdfWidth = pdf.internal.pageSize.getWidth();
+                            const pdfHeight = pdf.internal.pageSize.getHeight();
+                            const imgProps = pdf.getImageProperties(imgData);
+                            const pdfImageHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                            // Simple multipage logic
+                            let heightLeft = pdfImageHeight;
+                            let position = 0;
+
+                            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
+                            heightLeft -= pdfHeight;
+
+                            while (heightLeft >= 0) {
+                                position = heightLeft - pdfImageHeight;
+                                pdf.addPage();
+                                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfImageHeight);
+                                heightLeft -= pdfHeight;
+                            }
+
+                            pdf.save('DARYL-Chunked-Report.pdf');
+                        });
+                    }, 100);
+                });
+            }
         });
         downloadContainer.appendChild(downloadPdfButton);
-        
+
         // Extract CSVs from the report if any are embedded in code blocks
         const { csvs } = parseOverallReport(markdownReport); // Reuse parser to find CSV blocks
         csvs.forEach(csv => {
@@ -622,22 +626,34 @@ function parseOverallReport(reportText) {
     const csvs = [];
     let fullText = reportText;
 
+    // specialized check: If the report is an HTML document wrapped in markdown code fences, extract it.
+    const htmlBlockRegex = /```html\s*([\s\S]*?)```/i;
+    const htmlMatch = fullText.match(htmlBlockRegex);
+    if (htmlMatch) {
+        const potentialHtml = htmlMatch[1].trim();
+        // Verify it looks like a full HTML document
+        if (/^\s*<!DOCTYPE html>/i.test(potentialHtml) || /^\s*<html/i.test(potentialHtml)) {
+            return {
+                markdownReport: potentialHtml,
+                csvs: [] // HTML reports typically don't have the CSV sections appended in this tool's context
+            };
+        }
+    }
+
     // Find the start of the actual markdown report, ignoring any preamble.
     const reportStartMatch = fullText.match(/^#+\s/m);
     if (reportStartMatch) {
         fullText = fullText.substring(reportStartMatch.index);
     }
 
-    // Clean up markdown code fences
+    // Clean up markdown code fences (Robust Regex Version)
     let cleanText = fullText.trim();
-    if (cleanText.startsWith('```markdown')) {
-        cleanText = cleanText.substring('```markdown'.length).trim();
-    } else if (cleanText.startsWith('```')) {
-        cleanText = cleanText.substring('```'.length).trim();
-    }
-    if (cleanText.endsWith('```')) {
-        cleanText = cleanText.substring(0, cleanText.lastIndexOf('```')).trim();
-    }
+
+    // Removes start fence like ```html, ```markdown, or just ```. Handles optional preamble if it wasn't caught above.
+    cleanText = cleanText.replace(/^[\s\S]*?```[a-zA-Z]*\n/, '');
+
+    // Removes end fence ```
+    cleanText = cleanText.replace(/```$/, '').trim();
 
     let markdownReport = cleanText;
 
@@ -708,82 +724,69 @@ function parseOverallReport(reportText) {
 
 
 /**
- * Renders the overall analysis report from Markdown to HTML.
+ * Renders the overall analysis report. Detects HTML vs Markdown.
  */
-function displayOverallReport(markdownReport) {
+function displayOverallReport(reportContent) {
     resultsContainer.innerHTML = '';
-    const reportContainer = document.createElement('div');
-    reportContainer.className = 'prose max-w-none p-6 bg-white rounded-lg shadow-sm border border-slate-200';
 
-    let cleanMarkdown = markdownReport.trim();
+    // Detect if the content is a full HTML document
+    const isHtml = /^\s*<!DOCTYPE html>/i.test(reportContent) || /^\s*<html/i.test(reportContent);
 
-    // --- FIX STARTS HERE ---
-    // More robust cleaning:
-    // 1. Find the actual start of the report (the first H1 heading) to strip any file preamble.
-    const reportStartIndex = cleanMarkdown.search(/^#\s/m);
-    if (reportStartIndex > 0) { // If the first heading isn't at the very beginning
-        cleanMarkdown = cleanMarkdown.substring(reportStartIndex);
-    }
+    if (isHtml) {
+        // Create an iframe to render the HTML report correctly (isolates CSS and allows Scripts)
+        const iframe = document.createElement('iframe');
+        iframe.style.width = '100%';
+        iframe.style.height = '100vh'; // Full height
+        iframe.style.border = 'none';
+        iframe.className = 'bg-white rounded-lg shadow-sm border border-slate-200';
 
-    // 2. Now, remove the code fences that might wrap the content.
-    if (cleanMarkdown.startsWith('```markdown')) {
-        cleanMarkdown = cleanMarkdown.substring('```markdown'.length).trim();
-    } else if (cleanMarkdown.startsWith('```')) {
-        cleanMarkdown = cleanMarkdown.substring('```'.length).trim();
-    }
+        resultsContainer.appendChild(iframe);
 
-    if (cleanMarkdown.endsWith('```')) {
-        cleanMarkdown = cleanMarkdown.substring(0, cleanMarkdown.lastIndexOf('```')).trim();
-    }
-    // --- FIX ENDS HERE ---
+        // Write the HTML content into the iframe
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(reportContent);
+        doc.close();
 
+    } else {
+        // Fallback to existing Markdown rendering logic
+        const reportContainer = document.createElement('div');
+        reportContainer.className = 'prose max-w-none p-6 bg-white rounded-lg shadow-sm border border-slate-200';
 
-    if (typeof marked !== 'undefined') {
-        const renderer = new marked.Renderer();
-        // Robust link renderer to handle potential malformed URLs from the AI
-        renderer.link = function(href, title, text) {
-            try {
-                // Check if Freshservice domain is set and extraction profile is NOT 'upload-extract'
-                // The fsDomainInput value will hold the FS domain if one was configured in settings
-                const fsDomain = fsDomainInput.value.trim().replace(/^https?:\/\//, '');
-                const isFsFetch = extractionProfileSelect.value !== 'upload-extract';
+        if (typeof marked !== 'undefined') {
+            const renderer = new marked.Renderer();
+            renderer.link = function (href, title, text) {
+                try {
+                    const fsDomain = fsDomainInput.value.trim().replace(/^https?:\/\//, '');
+                    const isFsFetch = extractionProfileSelect.value !== 'upload-extract';
+                    const isTicketLink = href.includes(fsDomain) && href.includes('/a/tickets/');
 
-                // Check if the link matches the expected FreshService format and if we should link out
-                const isTicketLink = href.includes(fsDomain) && href.includes('/a/tickets/');
-
-                if (isTicketLink && (!fsDomain || !isFsFetch)) {
-                    // If it's a ticket link but we skipped FS fetch, just return the text with a warning
-                    console.warn(`Link to FreshService ticket ${text} suppressed because FreshService domain is not configured or data was uploaded.`);
+                    if (isTicketLink && (!fsDomain || !isFsFetch)) {
+                        return text;
+                    }
+                    new URL(href);
+                    const link = marked.Renderer.prototype.link.call(this, href, title, text);
+                    return link.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+                } catch (e) {
                     return text;
                 }
+            };
 
-                // Validate the URL before creating a link
-                new URL(href);
-                const link = marked.Renderer.prototype.link.call(this, href, title, text);
-                return link.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
-            } catch (e) {
-                // If URL is invalid, just return the text without a link
-                console.warn(`Invalid URL found in report, rendering as text: ${href}`);
-                return text;
-            }
-        };
-
-        reportContainer.innerHTML = marked.parse(cleanMarkdown, {
-            mangle: false,
-            headerIds: false,
-            renderer: renderer
-        });
-    } else {
-        console.error("marked.js library not found. Falling back to preformatted text.");
-        const pre = document.createElement('pre');
-        pre.className = 'whitespace-pre-wrap font-mono text-sm';
-        pre.textContent = cleanMarkdown;
-        reportContainer.appendChild(pre);
+            reportContainer.innerHTML = marked.parse(reportContent, {
+                mangle: false,
+                headerIds: false,
+                renderer: renderer
+            });
+        } else {
+            const pre = document.createElement('pre');
+            pre.className = 'whitespace-pre-wrap font-mono text-sm';
+            pre.textContent = reportContent;
+            reportContainer.appendChild(pre);
+        }
+        resultsContainer.appendChild(reportContainer);
     }
 
-    resultsContainer.appendChild(reportContainer);
-
-    if (markdownReport.includes('## Analysis Failed')) {
+    if (reportContent.includes('## Analysis Failed')) {
         playNotificationSound('error');
         showOsNotification('Analysis Failed', 'An error occurred during the overall analysis.');
     }
@@ -817,23 +820,41 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
 
     // Add "Copy Report", "Download Report" (PDF), and "Download JSON" buttons if a markdown report is available
     if (markdownReport && analysisSucceeded) {
-        // Button 1: Copy Report
+        // Button 1: Copy Report (Rendered)
         const copyButton = document.createElement('button');
         copyButton.className = "inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-2 mb-2";
-        copyButton.textContent = "Copy Report (Raw HTML)"; // Updated label
+        copyButton.textContent = "Copy Report"; // Updated label to reflect rendered copy
+
         copyButton.addEventListener('click', () => {
-            const reportElement = resultsContainer.querySelector('.prose');
+            let reportElement = resultsContainer.querySelector('.prose');
+            let targetDoc = document;
+
+            // Handle case where report is inside an iframe
+            if (!reportElement && resultsContainer.querySelector('iframe')) {
+                const iframe = resultsContainer.querySelector('iframe');
+                if (iframe.contentDocument) {
+                    reportElement = iframe.contentDocument.body;
+                    targetDoc = iframe.contentDocument;
+                }
+            }
+
             if (!reportElement) return;
 
-            // Updated Copy Logic to copy Raw HTML
-            const rawHtml = reportElement.innerHTML;
-            const tempTextArea = document.createElement('textarea');
-            tempTextArea.value = rawHtml;
-            document.body.appendChild(tempTextArea);
-            tempTextArea.select();
+            // Updated Copy Logic: Select the rendered content using Range API
+            const selection = targetDoc.getSelection();
+            const range = targetDoc.createRange();
 
             try {
-                const successful = document.execCommand('copy');
+                // clear any existing selection
+                selection.removeAllRanges();
+
+                // Select the entire contents of the report element
+                range.selectNodeContents(reportElement);
+                selection.addRange(range);
+
+                // Execute copy command
+                const successful = targetDoc.execCommand('copy');
+
                 if (successful) {
                     const originalText = copyButton.textContent;
                     copyButton.textContent = "Copied!";
@@ -847,9 +868,12 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
                 }
             } catch (err) {
                 console.error('Failed to copy text.', err);
+            } finally {
+                // Always clear selection after attempting to copy
+                if (selection) {
+                    selection.removeAllRanges();
+                }
             }
-
-            document.body.removeChild(tempTextArea);
         });
         downloadContainer.appendChild(copyButton);
 
@@ -858,7 +882,10 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
         downloadPdfButton.className = "inline-block bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-2 mb-2";
         downloadPdfButton.textContent = "Download Report";
         downloadPdfButton.addEventListener('click', () => {
-            const reportElement = resultsContainer.querySelector('.prose');
+            let reportElement = resultsContainer.querySelector('.prose');
+            if (!reportElement && resultsContainer.querySelector('iframe')) {
+                reportElement = resultsContainer.querySelector('iframe').contentDocument.body;
+            }
             const headerElement = document.getElementById('pageHeader');
             if (reportElement && typeof window.html2canvas !== 'undefined' && typeof window.jspdf !== 'undefined') {
 
@@ -947,7 +974,11 @@ function displayCsvDownloads(csvs, markdownReport = '', analysisSucceeded = true
     const jsonButton = document.createElement('button');
     jsonButton.className = "inline-block bg-teal-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 mb-2";
     jsonButton.textContent = "Download Retrieved Data (JSON)";
-    jsonButton.addEventListener('click', handleDownload);
+    if (typeof handleDownload !== 'undefined') {
+        jsonButton.addEventListener('click', handleDownload);
+    } else {
+        console.warn('handleDownload function is not defined.');
+    }
     downloadContainer.appendChild(jsonButton);
 
 
@@ -968,7 +999,7 @@ function displayPerTicketDownloadsAndSearch() {
             <div class="relative">
                 <input type="text" id="perTicketSearchInput" placeholder="Search results..." class="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg">
                 <button id="clearPerTicketSearchBtn" class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700 hidden">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    <svg xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </div>
         </div>

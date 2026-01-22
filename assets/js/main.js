@@ -536,7 +536,7 @@ async function startAnalysis() {
                 return;
             }
         }
-        
+
         await runOverallAnalysis(geminiApiKey, selectedModel, currentPrompt, fsDomain, fileUri);
         // Clean up uploaded file after analysis
         if (fileUri) await deleteFileFromGemini(geminiApiKey, fileUri);
@@ -669,31 +669,31 @@ async function runPerTicketAnalysis(geminiApiKey, selectedModel, modules, useCas
 async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2, fsDomain) {
     const isDummyMode = dummyModeCheckbox.checked;
     const CHUNK_SIZE = 20;
-    
+
     // Determine the base filename for intermediate files
     let baseFilename = fileUploadInput.files[0] ? fileUploadInput.files[0].name : 'dataset';
     baseFilename = baseFilename.substring(0, baseFilename.lastIndexOf('.')) || baseFilename;
 
     analysisProgressContainer.classList.remove('hidden');
     analysisProgressText.textContent = 'Starting Chunked Analysis...';
-    
+
     // --- Chunking Data ---
     const chunks = [];
     for (let i = 0; i < allFetchedData.length; i += CHUNK_SIZE) {
         chunks.push(allFetchedData.slice(i, i + CHUNK_SIZE));
     }
-    
+
     const chunkResults = []; // To store intermediate JSON results
-    
+
     // --- Phase 1: Batch Processing ---
     for (let i = 0; i < chunks.length; i++) {
         if (isCancelled) break;
         while (isPaused) { await new Promise(resolve => setTimeout(resolve, 200)); if (isCancelled) break; }
-        
+
         const chunkIndex = i + 1;
         const currentChunk = chunks[i];
         const chunkFilename = `${baseFilename}_${String(chunkIndex).padStart(2, '0')}.json`;
-        
+
         analysisProgressText.textContent = `Processing Chunk ${chunkIndex} of ${chunks.length} (${currentChunk.length} records)...`;
         updateProgressBar('analysis', chunkIndex, chunks.length + 1); // +1 for final synthesis step
 
@@ -711,22 +711,22 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
                 // Prepare chunk data for upload
                 const chunkDataStr = JSON.stringify(currentChunk, null, 2);
                 const chunkFileUri = await uploadFileToGemini(geminiApiKey, chunkFilename, chunkDataStr);
-                
+
                 // Analyze chunk with Prompt 1
                 const { result, usage } = await analyzeOverallWithGemini(geminiApiKey, selectedModel, prompt1, fsDomain, chunkFileUri);
                 totalInputTokens += usage.input;
                 totalOutputTokens += usage.output;
-                
+
                 // Save result to memory (Dataset_XX.json)
                 chunkResults.push({
                     filename: chunkFilename.replace('.json', '_result.json'), // distinct name for result
                     content: result,
                     rawChunkFilename: chunkFilename
                 });
-                
+
                 // Cleanup chunk input file
                 await deleteFileFromGemini(geminiApiKey, chunkFileUri);
-                
+
             } catch (error) {
                 console.error(`Error processing chunk ${chunkIndex}:`, error);
                 handleGeminiFailure(`Chunk ${chunkIndex} failed: ${error.message}`, 'chunked');
@@ -756,10 +756,10 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
     } else {
         // Multi-chunk synthesis
         if (!prompt2 && !isDummyMode) {
-             // Should be caught by validation, but safeguard here
-             displayError("Synthesis Prompt (Prompt 2) is missing for multi-chunk analysis.", true);
-             resetControls();
-             return;
+            // Should be caught by validation, but safeguard here
+            displayError("Synthesis Prompt (Prompt 2) is missing for multi-chunk analysis.", true);
+            resetControls();
+            return;
         }
 
         const synthesisInputFilename = `${baseFilename}_aggregated_results.json`;
@@ -768,7 +768,7 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
             chunk: c.filename,
             analysis: c.content
         }));
-        
+
         if (isDummyMode) {
             finalReport = `## DUMMY SYNTHESIS REPORT\n\nAggregated ${chunks.length} chunks.\nUsed Prompt 2: "${prompt2 ? prompt2.name : 'N/A'}"\n\n---\n${prompt2 ? prompt2.prompt : 'No prompt text'}`;
             analysisSucceeded = true;
@@ -777,14 +777,14 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
                 // Upload aggregated results
                 const aggregatedJsonStr = JSON.stringify(aggregatedData, null, 2);
                 const aggregatedFileUri = await uploadFileToGemini(geminiApiKey, synthesisInputFilename, aggregatedJsonStr);
-                
+
                 // Run Prompt 2
                 const { result, usage } = await analyzeOverallWithGemini(geminiApiKey, selectedModel, prompt2, fsDomain, aggregatedFileUri);
                 finalReport = result;
                 totalInputTokens += usage.input;
                 totalOutputTokens += usage.output;
                 analysisSucceeded = true;
-                
+
                 // Cleanup
                 await deleteFileFromGemini(geminiApiKey, aggregatedFileUri);
 
@@ -807,10 +807,10 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
 
         // Display Final Report
         displayOverallReport(markdownReport);
-        
+
         // Custom Downloads for Chunked Mode
         displayChunkedDownloads(chunkResults, finalReport, analysisSucceeded);
-        
+
         displayAnalysisStats();
         setTimeout(() => scrollToElement(resultsSection), 100);
 
@@ -819,7 +819,7 @@ async function runChunkedAnalysis(geminiApiKey, selectedModel, prompt1, prompt2,
             showOsNotification('Analysis Complete!', 'Your Chunked Ticket Analysis is ready.');
         }
     }
-    
+
     resetControls(isCancelled ? 'Analysis Cancelled' : undefined);
 }
 
@@ -951,8 +951,8 @@ function startNewAnalysis() {
 
     // Reset prompt selection UI
     promptSelectInput.value = '';
-    handleClearPromptSelection(false); 
-    
+    handleClearPromptSelection(false);
+
     // Reset Prompt 2 UI
     prompt2SelectInput.value = '';
     handleClearPrompt2Selection();

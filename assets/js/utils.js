@@ -222,7 +222,7 @@ function scrubText(text, piiSettings) {
  * @param {string} type 'success' or 'error'
  */
 function playNotificationSound(type) {
-    const audioContext = new(window.AudioContext || window.webkitAudioContext)();
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
 
