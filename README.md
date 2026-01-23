@@ -117,7 +117,7 @@ To make sure `https://daryl.local` resolves correctly to your local machine, you
     Open your browser and try navigating to:
 
     ```text
-    https://daryl.local:8000
+    https://daryl.local:8001
     ```
 
     (Adjust the port if `server.py` uses a different one.)
@@ -168,7 +168,7 @@ To make sure `https://daryl.local` resolves correctly to your local machine, you
     Open your browser and go to:
 
     ```text
-    https://daryl.local:8000
+    https://daryl.local:8001
     ```
 
     (Again, adjust the port if needed.)
@@ -189,4 +189,4 @@ Open a terminal in the project's root directory and run the command below. The s
     python server.py
     ```
 
-> **Note:** The server will output the local URL in the terminal (e.g., `https://daryl.local:8000`). If your browser shows a security warning, it's because the certificate is self-signed. Since you created and trusted it yourself in the steps above, you can safely proceed.
+> **Note:** The server will output the local URL in the terminal (e.g., `https://daryl.local:8001`). If your browser shows a security warning, it's because the certificate is self-signed. Since you created and trusted it yourself in the steps above, you can safely proceed.
